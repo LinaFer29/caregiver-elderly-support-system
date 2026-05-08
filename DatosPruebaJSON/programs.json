@@ -1,0 +1,74 @@
+[
+    {
+      "id": 1,
+      "caregiver": 1,
+      "activity": 1,
+      "date": "2026-04-01",
+      "time": "08:00:00",
+      "frequency": "daily",
+      "is_active": true
+    },
+    {
+      "id": 2,
+      "caregiver": 1,
+      "activity": 2,
+      "date": "2026-04-01",
+      "time": "09:00:00",
+      "frequency": "daily",
+      "is_active": true
+    },
+    {
+      "id": 3,
+      "caregiver": 2,
+      "activity": 3,
+      "date": "2026-04-02",
+      "time": "07:00:00",
+      "frequency": "weekly",
+      "is_active": true
+    },
+    {
+      "id": 4,
+      "caregiver": 2,
+      "activity": 4,
+      "date": "2026-04-02",
+      "time": "08:30:00",
+      "frequency": "daily",
+      "is_active": true
+    },
+    {
+      "id": 5,
+      "caregiver": 1,
+      "activity": 5,
+      "date": "2026-04-03",
+      "time": "10:00:00",
+      "frequency": "daily",
+      "is_active": true
+    },
+    {
+      "id": 6,
+      "caregiver": 2,
+      "activity": 6,
+      "date": "2026-04-03",
+      "time": "11:00:00",
+      "frequency": "weekly",
+      "is_active": false
+    },
+    {
+      "id": 7,
+      "caregiver": 1,
+      "activity": 7,
+      "date": "2026-04-04",
+      "time": "14:00:00",
+      "frequency": "daily",
+      "is_active": true
+    },
+    {
+      "id": 8,
+      "caregiver": 2,
+      "activity": 8,
+      "date": "2026-04-04",
+      "time": "16:00:00",
+      "frequency": "weekly",
+      "is_active": true
+    }
+  ]

@@ -1,0 +1,38 @@
+[
+  {
+    "id": 3,
+    "username": "caregiver1",
+    "email": "caregiver1@test.com",
+    "password": "123456",
+    "first_name": "Ana",
+    "last_name": "Lopez",
+    "role": "caregiver"
+  },
+  {
+    "id": 4,
+    "username": "elderly1",
+    "email": "elderly1@test.com",
+    "password": "123456",
+    "first_name": "Carlos",
+    "last_name": "Perez",
+    "role": "elderly"
+  },
+  {
+    "id": 5,
+    "username": "elderly2",
+    "email": "elderly2@test.com",
+    "password": "123456",
+    "first_name": "Maria",
+    "last_name": "Gomez",
+    "role": "elderly"
+  },
+  {
+    "id": 6,
+    "username": "caregiver2",
+    "email": "caregiver2@test.com",
+    "password": "123456",
+    "first_name": "Luis",
+    "last_name": "Martinez",
+    "role": "caregiver"
+  }
+]

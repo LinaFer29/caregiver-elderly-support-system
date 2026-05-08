@@ -1,0 +1,16 @@
+  [
+    {
+      "id": 1,
+      "user": 4,
+      "dependency_level": "medium",
+      "underlying_conditions": "Hipertension",
+      "relationship_to_elderly": "hija"
+    },
+    {
+      "id": 2,
+      "user": 5,
+      "dependency_level": "high",
+      "underlying_conditions": "Diabetes",
+      "relationship_to_elderly": "enfermero"
+    }
+  ]

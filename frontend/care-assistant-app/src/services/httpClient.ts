@@ -1,0 +1,67 @@
+import axios from 'axios';
+import { API_BASE_URL } from '../config/env';
+
+export const httpClient = axios.create({
+    baseURL: API_BASE_URL,
+    headers: {
+        'Content-Type': 'application/json',
+    },
+});
+
+httpClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem("access");
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  return config;
+});
+
+
+httpClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    // Si es 401 y no se ha reintentado
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        const refresh = localStorage.getItem("refresh");
+
+        // si no hay refresh → logout directo
+        if (!refresh) {
+          localStorage.clear();
+          window.location.href = "/login";
+          return Promise.reject(error);
+        }
+
+        // pedir nuevo access token
+        const res = await axios.post(`${API_BASE_URL}/refresh/`, {
+          refresh,
+        });
+
+        const newAccess = res.data.access;
+
+        // guardar nuevo token
+        localStorage.setItem("access", newAccess);
+
+        // actualizar header global
+        httpClient.defaults.headers.Authorization = `Bearer ${newAccess}`;
+
+        // actualizar request original
+        originalRequest.headers.Authorization = `Bearer ${newAccess}`;
+
+        return httpClient(originalRequest);
+
+      } catch (err) {
+        localStorage.clear();
+        window.location.href = "/login";
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);

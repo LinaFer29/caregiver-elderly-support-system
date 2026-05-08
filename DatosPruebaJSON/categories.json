@@ -1,0 +1,34 @@
+[
+  {
+    "id": 1,
+    "name": "Salud"
+  },
+  {
+    "id": 2,
+    "name": "Medicacion"
+  },
+  {
+    "id": 3,
+    "name": "Ejercicio"
+  },
+  {
+    "id": 4,
+    "name": "Alimentacion"
+  },
+  {
+    "id": 5,
+    "name": "Higiene"
+  },
+  {
+    "id": 6,
+    "name": "Citas Medicas"
+  },
+  {
+    "id": 7,
+    "name": "Descanso"
+  },
+  {
+    "id": 8,
+    "name": "Recreacion"
+  }
+]

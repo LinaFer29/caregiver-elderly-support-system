@@ -1,0 +1,12 @@
+[
+  {
+    "id": 1,
+    "user": 3,
+    "caregiver_type": "familiar"
+  },
+  {
+    "id": 2,
+    "user": 6,
+    "caregiver_type": "profesional"
+  }
+]

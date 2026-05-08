@@ -1,0 +1,50 @@
+[
+    {
+      "id": 1,
+      "title": "Tomar presion",
+      "description": "Medir la presion arterial en la mañana",
+      "category": 1
+    },
+    {
+      "id": 2,
+      "title": "Tomar medicamentos",
+      "description": "Consumir medicamentos recetados",
+      "category": 2
+    },
+    {
+      "id": 3,
+      "title": "Caminar",
+      "description": "Caminar 20 minutos",
+      "category": 3
+    },
+    {
+      "id": 4,
+      "title": "Desayunar",
+      "description": "Consumir un desayuno balanceado",
+      "category": 4
+    },
+    {
+      "id": 5,
+      "title": "Baño diario",
+      "description": "Realizar higiene personal completa",
+      "category": 5
+    },
+    {
+      "id": 6,
+      "title": "Cita medica",
+      "description": "Asistir a consulta con el medico",
+      "category": 6
+    },
+    {
+      "id": 7,
+      "title": "Dormir siesta",
+      "description": "Descansar durante 30 minutos en la tarde",
+      "category": 7
+    },
+    {
+      "id": 8,
+      "title": "Ver television",
+      "description": "Actividad recreativa de entretenimiento",
+      "category": 8
+    }
+  ]
