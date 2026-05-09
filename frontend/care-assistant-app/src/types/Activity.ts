@@ -16,6 +16,7 @@ export type ActivityWithProgramData = BaseActivity & {
     time?: string;        // "08:00"
     frequency?: "daily" | "weekly";
     is_active?: boolean;
+    elderly_id?: number;
 };
 
 // Data coming FROM the backend that includes both activity and program information

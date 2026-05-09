@@ -54,7 +54,7 @@ export const getActivitiesWithProgram = async () => {
 };
 
 export const createActivityWithProgram = async (data: ActivityWithProgramData) => {
-    // res = {activity_id: 00, program_id: 00}
+    // res = {activity_id: 00, program_id: 00, assignment_id: 00}
     const res = await httpClient.post("/activities-with-program/", data);
     return res.data;
 };

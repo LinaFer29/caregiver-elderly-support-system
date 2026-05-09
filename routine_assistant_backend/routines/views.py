@@ -4,7 +4,7 @@ from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from activities.models import Activity
-from users.models import Caregiver
+from users.models import Caregiver, Elderly
 from .models import Assignment, Program
 from .serializers import ActivityWithProgramSerializer, AssignmentSerializer, ProgramSerializer
 from rest_framework.permissions import IsAuthenticated
@@ -61,26 +61,46 @@ class ActivitiesWithProgramView(APIView):
     def post(self, request):
         caregiver = Caregiver.objects.get(user=request.user)
 
-        # 1. Crear Activity
-        activity = Activity.objects.create(
-            title=request.data.get("title"),
-            description=request.data.get("description"),
-            category_id=request.data.get("category"),
+        elderly_id = request.data.get("elderly_id")
+        elderly = get_object_or_404(
+            Elderly,
+            id=elderly_id,
+            caregiver=caregiver
         )
 
-        # 2. Crear Program
-        program = Program.objects.create(
-            caregiver=caregiver,
-            activity=activity,
-            date=request.data.get("date"),
-            time=request.data.get("time"),
-            frequency=request.data.get("frequency"),
-            is_active=request.data.get("is_active", False),
-        )
+        with transaction.atomic():
+
+            # 1. Crear Activity
+            activity = Activity.objects.create(
+                title=request.data.get("title"),
+                description=request.data.get("description"),
+                category_id=request.data.get("category"),
+            )
+
+            # 2. Crear Program
+            program = Program.objects.create(
+                caregiver=caregiver,
+                activity=activity,
+                date=request.data.get("date"),
+                time=request.data.get("time"),
+                frequency=request.data.get("frequency"),
+                is_active=request.data.get("is_active", False),
+            )
+
+            # 3. Crear Assignment
+            assignment = Assignment.objects.create(
+                elderly=elderly,
+                activity=activity,
+                date=request.data.get("date"),
+                notification_time=request.data.get("time"),
+                status="pending",
+            )
+
 
         return Response({
             "activity_id": activity.id,
-            "program_id": program.id
+            "program_id": program.id,
+            "assignment_id": assignment.id,
         }, status=status.HTTP_201_CREATED)
     
     def put(self, request, activity_id):

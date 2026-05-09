@@ -7,12 +7,14 @@ import type { ActivityWithProgramData } from "../types/Activity";
 import { getActivityById } from "../services/activities.services";
 import { createCategory, getAllCategories } from "../services/categories.services";
 import { createActivityWithProgram, getProgramById, updateActivityWithProgram } from "../services/programs.services";
+import { useSelectedElderly } from "../context/useSelectedElderly";
 
 export function ActivityFormPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [activityData, setActivityData] = useState<ActivityWithProgramData | undefined>();
   const navigate = useNavigate();
   const params = useParams();
+  const { selectedElderly } = useSelectedElderly();
 
   useEffect(() => {
     async function loadCategories() {
@@ -54,6 +56,11 @@ export function ActivityFormPage() {
   const onSubmit = async (data: ActivityWithProgramData) => {
     console.log("Datos del formulario:", data);
     console.log("Is active:", data.is_active);
+
+    if (!selectedElderly) {
+      toast.error("Debes seleccionar un adulto mayor");
+      return;
+    }
     try {
       if (params.id) {
         // Update Activity with Program in one step
@@ -69,8 +76,13 @@ export function ActivityFormPage() {
         navigate(`/activities/${params.id}`);
       } else {
         // Create new Activity with Program in one step
-        const newActivityProgram = await createActivityWithProgram(data);
-        const activityId = newActivityProgram.activity_id;        ;
+        const payload = {
+          ...data,
+          elderly_id: selectedElderly.id,
+        }
+
+        const newActivityProgram = await createActivityWithProgram(payload);
+        const activityId = newActivityProgram.activity_id;;
         toast.success("Actividad creada exitosamente", {
           position: "top-center",
           duration: 3000,

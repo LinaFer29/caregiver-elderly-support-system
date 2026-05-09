@@ -3,10 +3,12 @@ import { AuthContext } from "./AuthContext";
 import { authService } from "../services/auth.service";
 import type { LoginData } from "../types/Login";
 import { httpClient } from "../services/httpClient";
+import { useSelectedElderly } from "./useSelectedElderly";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [loading, setLoading] = useState(true);
+    const { setSelectedElderly } = useSelectedElderly();
 
     useEffect(() => {
         const token = localStorage.getItem("access");
@@ -26,6 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   
     const logout = () => {
       authService.logout();
+      setSelectedElderly(null);
       setIsAuthenticated(false);
     };
   
