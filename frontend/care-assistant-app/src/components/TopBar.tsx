@@ -58,6 +58,8 @@ export function TopBar() {
           if (!exists) {
             setSelectedElderly(data[0]);
           }
+        } else if (selectedElderly) {
+          setSelectedElderly(null);
         }
       } catch (error) {
         console.error(error);

@@ -2,7 +2,7 @@ import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
   CalendarCheck,
-  Tag,
+  ListChecks,
   Heart,
   Users,
 } from "lucide-react";
@@ -10,9 +10,9 @@ import {
 import { useSidebar } from "../context/useSidebar";
 
 const navItems = [
-  { title: "Dashboard", path: "/", icon: LayoutDashboard },
-  { title: "Activities", path: "/activities", icon: CalendarCheck },
-  { title: "Categories", path: "/categories", icon: Tag },
+  { title: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
+  { title: "Routines", path: "/routines", icon: CalendarCheck },
+  { title: "Activity Catalog", path: "/activities-catalog", icon: ListChecks },
   { title: "Elderly", path: "/elderly", icon: Users },
 ];
 

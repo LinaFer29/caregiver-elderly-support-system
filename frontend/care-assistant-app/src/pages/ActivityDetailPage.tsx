@@ -1,14 +1,13 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getActivityById, deleteActivity } from "../services/activities.services";
+import { getActivityById } from "../services/activities.services";
 import { getAllCategories } from "../services/categories.services";
 import type { Activity } from "../types/Activity";
 import type { Category } from "../types/Category";
 
-import { ArrowLeftFromLine, Calendar, Clock, Pen, Repeat, Trash2 } from "lucide-react";
-import { toast } from "react-hot-toast";
+import { ArrowLeftFromLine, Calendar, Clock, Repeat } from "lucide-react";
 import type { Program } from "../types/Program";
-import { getAllPrograms, updateProgram } from "../services/programs.services";
+import { getAllPrograms } from "../services/programs.services";
 import { DynamicIcon } from "../components/DynamicIcon";
 
 export function ActivityDetailPage() {
@@ -102,30 +101,6 @@ export function ActivityDetailPage() {
                         )}
                     </div>
                 </div>
-
-                <div className="flex gap-2">
-                    <button
-                        onClick={() => navigate(`/activity/${activity.id}`)}
-                        className="bg-blue text-white px-4 py-2 rounded-xl flex items-center gap-2"
-                    >
-                        <Pen size={16} />
-                        Editar
-                    </button>
-
-                    <button
-                        onClick={async () => {
-                            const confirm = window.confirm("¿Eliminar actividad?");
-                            if (!confirm) return;
-
-                            await deleteActivity(activity.id);
-                            toast.success("Actividad eliminada");
-                            navigate("/activities");
-                        }}
-                        className="bg-red-500 text-white px-4 py-2 rounded-xl flex items-center gap-2"
-                    >
-                        <Trash2 size={16} />
-                    </button>
-                </div>
             </div>
 
             {/* Card */}
@@ -179,28 +154,17 @@ export function ActivityDetailPage() {
                 <div className="bg-app-background border border-border-soft rounded-xl p-4 flex items-center justify-between">
                     <div className="flex flex-col">
                         <span className="text-nuetral-dark">Estado de Actividad</span>
-                        <p className="text-neutral-light">Activa o desactiva esta actividad.</p>
+                        <p className="text-neutral-light">Estado disponible del sistema.</p>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-
-                        <input
-                            type="checkbox"
-                            className="sr-only peer"
-                            checked={program?.is_active}
-                            onChange={async (e) => {
-                                if (!program) return;
-
-                                const updated = {
-                                    ...program,
-                                    is_active: e.target.checked,
-                                };
-
-                                await updateProgram(program.id, updated);
-                                setProgram(updated);
-                            }}
-                        />
-                        <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-blue transition"></div>
-                    </label>
+                    <span
+                        className={`text-xs px-3 py-1 rounded-lg ${
+                            program?.is_active
+                                ? "bg-green-100 text-green-700"
+                                : "bg-red-100 text-red-600"
+                        }`}
+                    >
+                        {program?.is_active ? "Activa" : "Inactiva"}
+                    </span>
 
                 </div>
             </div>

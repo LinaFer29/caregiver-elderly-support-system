@@ -11,6 +11,14 @@ import { PublicRoute } from "./routes/PublicRoutes"
 import { PrivateRoute } from "./routes/PrivateRoutes"
 import RegisterElderlyPage from "./pages/RegisterElderlyPage"
 import ElderlyPage from "./pages/ElderlyPage"
+import { ElderlyAccessGuard } from "./routes/ElderlyAccessGuard"
+import ElderlyRequiredPage from "./pages/ElderlyRequiredPage"
+import CreateRoutinePage from "./pages/CreateRoutinePage"
+import ActivitiesCatalogPage from "./pages/ActivitiesCatalogPage"
+import RoutinesPage from "./pages/RoutinesPage"
+import RoutineDetailPage from "./pages/RoutineDetailPage"
+import EditRoutinePage from "./pages/EditRoutinePage"
+import DashboardPage from "./pages/DashboardPage"
 
 function App() {
   return (
@@ -25,16 +33,25 @@ function App() {
 
           {/* PRIVATE ROUTES (con layout) */}
           <Route element={<PrivateRoute />}>
-            <Route element={<MainLayout />}>
-              <Route path="/" element={<Navigate to="/activities" />} />
-              <Route path="/activities" element={<ActivitiesPage />} />
-              <Route path="/activities/:id" element={<ActivityDetailPage />} />
-              <Route path="/activity-create" element={<ActivityFormPage />} />
-              <Route path="/activity/:id" element={<ActivityFormPage />} />
-              <Route path="/categories" element={<CategoriesPage />} />
-              <Route path="/elderly" element={<ElderlyPage />} />
-              <Route path="/elderly-create" element={<RegisterElderlyPage />} />
-              <Route path="/elderly/:id" element={<RegisterElderlyPage />} />
+            <Route element={<ElderlyAccessGuard />}>
+              <Route element={<MainLayout />}>
+                <Route path="/" element={<Navigate to="/dashboard" />} />
+                <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/routines" element={<RoutinesPage />} />
+                <Route path="/routines/new" element={<CreateRoutinePage />} />
+                <Route path="/routines/:id" element={<RoutineDetailPage />} />
+                <Route path="/routines/:id/edit" element={<EditRoutinePage />} />
+                <Route path="/activities-catalog" element={<ActivitiesCatalogPage />} />
+                <Route path="/activities" element={<ActivitiesPage />} />
+                <Route path="/activities/:id" element={<ActivityDetailPage />} />
+                <Route path="/activity-create" element={<ActivityFormPage />} />
+                <Route path="/activity/:id" element={<ActivityFormPage />} />
+                <Route path="/categories" element={<CategoriesPage />} />
+                <Route path="/elderly" element={<ElderlyPage />} />
+                <Route path="/elderly-create" element={<RegisterElderlyPage />} />
+                <Route path="/elderly-required" element={<ElderlyRequiredPage />} />
+                <Route path="/elderly/:id" element={<RegisterElderlyPage />} />
+              </Route>
             </Route>
           </Route>
         </Routes>

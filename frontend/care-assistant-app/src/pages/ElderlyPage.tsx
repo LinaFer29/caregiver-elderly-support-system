@@ -157,7 +157,7 @@ export default function ElderlyPage() {
                     </p>
 
                     <button
-                        onClick={() => navigate("/elderly/new")}
+                        onClick={() => navigate("/elderly-create")}
                         className="mt-5 px-5 py-3 bg-blue text-white rounded-xl inline-flex items-center gap-2 shadow hover:opacity-90 transition"
                     >
                         <Plus className="w-4 h-4" />
