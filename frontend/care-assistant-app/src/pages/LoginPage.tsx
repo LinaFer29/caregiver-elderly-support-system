@@ -5,6 +5,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "../context/useAuth";
+import { isAxiosError } from "axios";
 
 const loginSchema = z.object({
     identifier: z
@@ -30,7 +31,7 @@ export default function Login() {
         register,
         handleSubmit,
         formState: { errors, isSubmitting },
-        setValue,
+        resetField,
     } = useForm<LoginFormData>({
         resolver: zodResolver(loginSchema),
     });
@@ -42,14 +43,21 @@ export default function Login() {
             await login(data);
             navigate("/");
 
-        } catch (error) {
-            if (error.response?.status === 401) {
-                setFormError("Credenciales incorrectas");
-              } else {
-                setFormError("Error al iniciar sesión");
-              }
-              console.log("FORM ERROR:", formError);
-              setValue("password", "");
+        } catch (error: unknown) {
+            if (isAxiosError(error)) {
+                if (error.response?.status === 404) {
+                    setFormError("No se encontraron coincidencias para el usuario ingresado.");
+                } else if (error.response?.status === 401) {
+                    setFormError("Usuario o contraseña incorrectos.");
+                } else {
+                    setFormError("Error al iniciar sesión. Intenta nuevamente.");
+                }
+            } else {
+                setFormError("Error al iniciar sesión. Intenta nuevamente.");
+            }
+
+            // Solo limpiamos contraseña, el usuario/email se mantiene
+            resetField("password");
         }
     };
 

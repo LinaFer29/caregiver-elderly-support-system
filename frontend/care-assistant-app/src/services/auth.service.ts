@@ -8,7 +8,7 @@ export const authService = {
   // LOGIN
   async login(data: { identifier: string; password: string }) {
     const response = await httpClient.post("/login/", {
-      username: data.identifier, // Django espera "username"
+      identifier: data.identifier,
       password: data.password,
     });
 
@@ -66,5 +66,16 @@ export const authService = {
   // IS AUTHENTICATED
   isAuthenticated() {
     return !!localStorage.getItem(ACCESS_KEY);
+  },
+
+  // CURRENT USER PROFILE
+  async me() {
+    const response = await httpClient.get("/me/");
+    return response.data as {
+      id: number;
+      username: string;
+      email: string;
+      role: string;
+    };
   },
 };

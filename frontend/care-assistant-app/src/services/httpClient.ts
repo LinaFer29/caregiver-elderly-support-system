@@ -23,9 +23,19 @@ httpClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    const requestUrl = String(originalRequest?.url || "");
+    const isAuthRoute =
+      requestUrl.includes("/login/") ||
+      requestUrl.includes("/register/") ||
+      requestUrl.includes("/refresh/");
+
+    // No intentar refresh ni redirigir en errores de autenticación inicial
+    if (isAuthRoute) {
+      return Promise.reject(error);
+    }
 
     // Si es 401 y no se ha reintentado
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && !originalRequest?._retry) {
       originalRequest._retry = true;
 
       try {
@@ -59,6 +69,7 @@ httpClient.interceptors.response.use(
       } catch (err) {
         localStorage.clear();
         window.location.href = "/login";
+        return Promise.reject(err);
       }
     }
 

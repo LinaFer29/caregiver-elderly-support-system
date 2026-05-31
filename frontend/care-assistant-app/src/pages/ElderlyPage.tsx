@@ -100,18 +100,24 @@ export default function ElderlyPage() {
         return `${firstName[0] ?? ""}${lastName[0] ?? ""}`.toUpperCase();
     };
 
-    const dependencyStyles = {
+    const dependencyStyles: Record<string, string> = {
+        bajo: "bg-green-100 text-green-700 border border-green-200",
+        moderado: "bg-yellow-100 text-yellow-700 border border-yellow-200",
+        alto: "bg-orange-100 text-orange-700 border border-orange-200",
+        total: "bg-red-100 text-red-700 border border-red-200",
         low: "bg-green-100 text-green-700 border border-green-200",
         moderate: "bg-yellow-100 text-yellow-700 border border-yellow-200",
         high: "bg-orange-100 text-orange-700 border border-orange-200",
-        total: "bg-red-100 text-red-700 border border-red-200",
     };
 
-    const dependencyLabels = {
+    const dependencyLabels: Record<string, string> = {
+        bajo: "Bajo",
+        moderado: "Moderado",
+        alto: "Alto",
+        total: "Total",
         low: "Bajo",
         moderate: "Moderado",
         high: "Alto",
-        total: "Total",
     };
 
     return (
@@ -208,12 +214,12 @@ export default function ElderlyPage() {
                                         </p>
 
                                         <span
-                                            className={`text-[10px] uppercase tracking-wide font-semibold px-2 py-1 rounded-full ${dependencyStyles[person.dependency_level]}`}
+                                            className={`text-[10px] uppercase tracking-wide font-semibold px-2 py-1 rounded-full ${dependencyStyles[person.dependency_level] ?? dependencyStyles.bajo}`}
                                         >
                                             {
                                                 dependencyLabels[
                                                 person.dependency_level
-                                                ]
+                                                ] ?? "Bajo"
                                             }
                                         </span>
                                     </div>

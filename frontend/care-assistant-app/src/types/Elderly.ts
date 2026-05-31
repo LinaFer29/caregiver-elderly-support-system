@@ -7,7 +7,7 @@ type BaseElderly = {
 
     // El backend asignará automáticamente el cuidador actual a 'caregiver'
     relationship_to_caregiver: string;
-    dependency_level: "low" | "moderate" | "high" | "total";
+    dependency_level: "bajo" | "moderado" | "alto" | "total" | "low" | "moderate" | "high";
     underlying_conditions?: string;
 }
 

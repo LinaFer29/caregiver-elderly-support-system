@@ -30,7 +30,7 @@ const elderlySchema = z.object({
         .or(z.literal("")),
 
     relationshipToCaregiver: z.string().min(1, "Relación es requerida"),
-    dependencyLevel: z.enum(["low", "moderate", "high", "total"],
+    dependencyLevel: z.enum(["bajo", "moderado", "alto", "total"],
         {
             message: "Seleccione un nivel de dependencia"
         }
@@ -40,6 +40,22 @@ const elderlySchema = z.object({
 
 type ElderlyFormData = z.infer<typeof elderlySchema>;
 type BackendErrors = Record<string, string[]>;
+
+function normalizeDependencyLevel(value: string | undefined): ElderlyFormData["dependencyLevel"] {
+    if (!value) return "bajo";
+
+    const map: Record<string, ElderlyFormData["dependencyLevel"]> = {
+        low: "bajo",
+        moderate: "moderado",
+        high: "alto",
+        total: "total",
+        bajo: "bajo",
+        moderado: "moderado",
+        alto: "alto",
+    };
+
+    return map[value.toLowerCase()] ?? "bajo";
+}
 
 export default function RegisterElderlyPage() {
     const navigate = useNavigate();
@@ -72,7 +88,7 @@ export default function RegisterElderlyPage() {
                     username: data.username,
                     email: data.email,
                     relationshipToCaregiver: data.relationship_to_caregiver,
-                    dependencyLevel: data.dependency_level,
+                    dependencyLevel: normalizeDependencyLevel(data.dependency_level),
                     conditions: data.underlying_conditions,
                 });
             } catch (error) {
@@ -356,9 +372,9 @@ export default function RegisterElderlyPage() {
                                     className="w-full mt-1 border border-border-soft rounded-lg p-3"
                                 >
                                     <option value="">Selecciona un nivel</option>
-                                    <option value="low">Bajo</option>
-                                    <option value="moderate">Moderado</option>
-                                    <option value="high">Alto</option>
+                                    <option value="bajo">Bajo</option>
+                                    <option value="moderado">Moderado</option>
+                                    <option value="alto">Alto</option>
                                     <option value="total">Total</option>
                                 </select>
 

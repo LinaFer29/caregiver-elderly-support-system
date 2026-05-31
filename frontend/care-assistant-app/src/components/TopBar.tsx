@@ -1,10 +1,11 @@
-import { Bell, User, Menu, ChevronDown } from "lucide-react";
+import { User, Menu, ChevronDown, LogOut } from "lucide-react";
 import { useAuth } from "../context/useAuth";
 import { useNavigate } from "react-router-dom";
 import { useSidebar } from "../context/useSidebar";
 import { useSelectedElderly } from "../context/useSelectedElderly";
 
 import { getAllElderly } from "../services/elderly.services";
+import { authService } from "../services/auth.service";
 
 import type { Elderly } from "../types/Elderly";
 import { useEffect, useRef, useState } from "react";
@@ -28,11 +29,18 @@ export function TopBar() {
   };
 
   const [elderlyProfiles, setElderlyProfiles] = useState<Elderly[]>([]);
-  const [open, setOpen] = useState(false);
+  const [profilesOpen, setProfilesOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [authUser, setAuthUser] = useState<{
+    username: string;
+    email: string;
+    role: string;
+  } | null>(null);
 
   const navigate = useNavigate();
   const { logout } = useAuth();
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const profilesDropdownRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   const {
     selectedElderly,
@@ -70,12 +78,32 @@ export function TopBar() {
   }, [selectedElderly, setSelectedElderly]);
 
   useEffect(() => {
+    async function loadAuthUser() {
+      try {
+        const data = await authService.me();
+        setAuthUser(data);
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    loadAuthUser();
+  }, []);
+
+  useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
+        profilesDropdownRef.current &&
+        !profilesDropdownRef.current.contains(event.target as Node)
       ) {
-        setOpen(false);
+        setProfilesOpen(false);
+      }
+
+      if (
+        userMenuRef.current &&
+        !userMenuRef.current.contains(event.target as Node)
+      ) {
+        setUserMenuOpen(false);
       }
     }
 
@@ -101,12 +129,12 @@ export function TopBar() {
           <Menu className="h-5 w-5 text-neutral-dark" />
         </button>
 
-        <div className="relative" ref={dropdownRef}>
+        <div className="relative" ref={profilesDropdownRef}>
 
-          <button
-            onClick={() => setOpen(!open)}
-            className="flex items-center gap-3 border border-border-soft bg-white px-3 py-2 rounded-xl hover:bg-hover transition"
-          >
+        <button
+          onClick={() => setProfilesOpen(!profilesOpen)}
+          className="flex items-center gap-3 border border-border-soft bg-white px-3 py-2 rounded-xl hover:bg-hover transition"
+        >
             {selectedElderly ? (
               <>
                 <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue/10 text-xs font-semibold text-blue">
@@ -135,7 +163,7 @@ export function TopBar() {
             <ChevronDown className="w-4 h-4 text-neutral-light" />
           </button>
 
-          {open && (
+          {profilesOpen && (
             <div className="absolute right-0 mt-2 w-72 bg-white border border-border-soft rounded-xl shadow-lg z-50 overflow-hidden">
 
               {elderlyProfiles.map((profile) => (
@@ -143,7 +171,7 @@ export function TopBar() {
                   key={profile.id}
                   onClick={() => {
                     setSelectedElderly(profile);
-                    setOpen(false);
+                    setProfilesOpen(false);
                   }}
                   className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-hover transition text-left
                         
@@ -183,30 +211,51 @@ export function TopBar() {
 
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4" ref={userMenuRef}>
+        <div className="relative">
+          <button
+            onClick={() => setUserMenuOpen((prev) => !prev)}
+            className="h-10 w-10 rounded-full border border-border-soft bg-white flex items-center justify-center hover:bg-hover transition"
+          >
+            <User className="h-5 w-5 text-neutral-dark" />
+          </button>
 
-        <button className="relative hover:text-white">
-          <Bell className="h-5 w-5 text-neutral-light" />
-        </button>
+          {userMenuOpen && (
+            <div className="absolute right-0 mt-2 w-80 bg-white border border-border-soft rounded-xl shadow-lg z-50 overflow-hidden">
+              <div className="px-4 py-4 flex items-start gap-3">
+                <div className="h-9 w-9 rounded-full bg-blue-light flex items-center justify-center text-blue shrink-0">
+                  <User className="h-5 w-5" />
+                </div>
 
-        <div className="flex items-center gap-2 py-4">
-          <div className="h-9 w-9 rounded-full bg-blue-light flex items-center justify-center text-blue font-semibold">
-            <User></User>
-          </div>
-          <div className="hidden md:block">
-            <p className="text-sm font-semibold text-neutral-dark leading-none">Maria Costa</p>
-            <p className="text-xs text-muted-foreground text-neutral-light mt-0.5">Caregiver</p>
-          </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-neutral-dark truncate">
+                    {authUser?.username || "Usuario"}
+                  </p>
+                  <p className="text-xs text-neutral-light truncate">
+                    {authUser?.email || "-"}
+                  </p>
+                  <p className="text-xs text-neutral-light mt-1 capitalize">
+                    {authUser?.role === "caregiver" ? "Cuidador" : authUser?.role || "-"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="border-t border-border-soft" />
+
+              <button
+                onClick={() => {
+                  setUserMenuOpen(false);
+                  logout();
+                  navigate("/login");
+                }}
+                className="w-full px-4 py-3 text-left flex items-center gap-3 text-sm text-neutral-dark hover:bg-hover transition"
+              >
+                <LogOut className="h-4 w-4 text-neutral-light" />
+                Cerrar sesión
+              </button>
+            </div>
+          )}
         </div>
-        <button
-          onClick={() => {
-            logout();
-            navigate("/login");
-          }}
-        >
-          Cerrar sesión
-        </button>
-
       </div>
     </header>
   );

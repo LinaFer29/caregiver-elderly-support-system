@@ -19,6 +19,9 @@ export function DynamicIcon({
     
     if(!LucideIcon) {
         //fallback a un icono por defecto si el nombre no es válido
+        console.log(`Icono "${name}" no encontrado. Usando icono de ayuda por defecto.`);
+        console.log(iconName);
+        console.log(LucideIcon);
         return <Icons.HelpCircle size={size} className={className} style={style} />;
     }
 

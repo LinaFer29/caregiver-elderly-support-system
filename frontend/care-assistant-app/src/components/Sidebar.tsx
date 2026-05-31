@@ -10,10 +10,10 @@ import {
 import { useSidebar } from "../context/useSidebar";
 
 const navItems = [
-  { title: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
-  { title: "Routines", path: "/routines", icon: CalendarCheck },
-  { title: "Activity Catalog", path: "/activities-catalog", icon: ListChecks },
-  { title: "Elderly", path: "/elderly", icon: Users },
+  { title: "Panel", path: "/dashboard", icon: LayoutDashboard },
+  { title: "Rutinas", path: "/routines", icon: CalendarCheck },
+  { title: "Catálogo de Actividades", path: "/activities-catalog", icon: ListChecks },
+  { title: "Adultos Mayores", path: "/elderly", icon: Users },
 ];
 
 export function Sidebar() {
@@ -63,7 +63,7 @@ export function Sidebar() {
               </h1>
 
               <p className="text-xs text-neutral-light">
-                Caregiver Assistant
+                Asistente de Cuidado
               </p>
             </div>
           )}
@@ -100,7 +100,7 @@ export function Sidebar() {
         {/* FOOTER */}
         {!collapsed && (
           <div className="p-4 text-xs text-neutral-light text-center">
-            Made with Love for caregivers
+            Hecho con cuidado para cuidadores
           </div>
         )}
       </aside>
