@@ -49,6 +49,7 @@ class MeView(APIView):
 
 class CustomLoginView(APIView):
     def post(self, request):
+
         identifier = (
             request.data.get("identifier")
             or request.data.get("username")
@@ -64,9 +65,20 @@ class CustomLoginView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        user = User.objects.filter(
-            Q(username__iexact=identifier) | Q(email__iexact=identifier)
-        ).first()
+        # Priorizamos username porque es unico y evita ambiguedades cuando
+        # existen varios usuarios con el mismo correo historico.
+        user = User.objects.filter(username__iexact=identifier).first()
+
+        if not user:
+            users_by_email = User.objects.filter(email__iexact=identifier).order_by("id")
+
+            if users_by_email.count() > 1:
+                return Response(
+                    {"detail": "Se encontraron varias cuentas con ese correo. Inicia sesion con tu nombre de usuario."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            user = users_by_email.first()
 
         if not user:
             return Response(
@@ -88,3 +100,5 @@ class CustomLoginView(APIView):
             },
             status=status.HTTP_200_OK
         )
+    
+        

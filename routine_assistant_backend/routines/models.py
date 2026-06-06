@@ -7,14 +7,21 @@ from users.models import Caregiver, Elderly
 
 class Program(models.Model):
     caregiver = models.ForeignKey(Caregiver, on_delete=models.CASCADE)
+    elderly = models.ForeignKey(
+        Elderly,
+        on_delete=models.CASCADE,
+        related_name="programs",
+    )
     activity = models.ForeignKey(Activity, on_delete=models.CASCADE)
 
     date = models.DateField()
     time = models.TimeField()
 
     FREQUENCY_CHOICES = [
+        ('once', 'Once'),
         ('daily', 'Daily'),
         ('weekly', 'Weekly'),
+        ('monthly', 'Monthly'),
     ]
 
     frequency = models.CharField(max_length=20, choices=FREQUENCY_CHOICES)
@@ -30,6 +37,7 @@ class Assignment(models.Model):
 
     date = models.DateField()
     notification_time = models.TimeField()
+    additional_instructions = models.TextField(null=True, blank=True)
 
     STATUS_CHOICES = [
         ('pending', 'Pending'),
