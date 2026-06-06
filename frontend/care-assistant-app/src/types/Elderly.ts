@@ -1,11 +1,7 @@
 type BaseElderly = {
     first_name: string;
     last_name: string;
-    username: string;
-    email: string;
-    role: string; // "elderly"
-
-    // El backend asignará automáticamente el cuidador actual a 'caregiver'
+    age: number | null;
     relationship_to_caregiver: string;
     dependency_level: "bajo" | "moderado" | "alto" | "total" | "low" | "moderate" | "high";
     underlying_conditions?: string;
@@ -15,10 +11,6 @@ export type Elderly = BaseElderly & { // Data coming FROM the backend
     id: number
 }
 
-export type ElderlyCreate = BaseElderly & { // Data you SEND to the backend
-    password: string;
-};
+export type ElderlyCreate = BaseElderly;
 
-export type ElderlyUpdate = Partial<BaseElderly> & {
-    password?: string;
-};
+export type ElderlyUpdate = Partial<BaseElderly>;

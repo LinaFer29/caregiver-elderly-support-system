@@ -4,9 +4,11 @@ import { httpClient } from "./httpClient";
 
 // Traer todos los program de un id de cuidador getProgramByCaregiverId
 
-export const getAllPrograms = async () => {
+export const getAllPrograms = async (elderlyId?: number) => {
     try {
-        const response = await httpClient.get('/programs/');
+        const response = await httpClient.get('/programs/', {
+            params: elderlyId ? { elderly_id: elderlyId } : undefined,
+        });
         return response.data;
     } catch (error) {
         console.error('Error en getAllPrograms:', error);

@@ -225,7 +225,8 @@ export default function ElderlyPage() {
                                     </div>
 
                                     <p className="text-xs text-neutral-light mt-1 truncate">
-                                        {person.relationship_to_caregiver}
+                                        {person.age ? `${person.age} años` : "Edad no registrada"}
+                                        {` · ${person.relationship_to_caregiver}`}
 
                                         {person.underlying_conditions
                                             ? ` · ${person.underlying_conditions}`

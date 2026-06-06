@@ -1,23 +1,52 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CalendarDays, Clock3, Repeat, CheckSquare, ChevronDown, ChevronRight } from "lucide-react";
+import { CalendarDays, Clock3, Repeat, CheckSquare, ChevronDown, ChevronRight, NotebookPen } from "lucide-react";
 import { DynamicIcon } from "./DynamicIcon";
 import type { RoutineCatalogActivity, RoutineFrequency } from "../types/Routine";
+import { formatRoutineFrequency, generateRecurringDates } from "../utils/routineRecurrence";
 
 const formSchema = z.object({
-  date: z.string().min(1, "La fecha es requerida"),
+  start_date: z.string().min(1, "La fecha inicio es requerida"),
+  end_date: z.string().optional(),
   activities: z
     .array(
       z.object({
         activity_id: z.number(),
         time: z.string().min(1, "La hora es requerida"),
-        frequency: z.enum(["daily", "weekly"], { message: "Selecciona una frecuencia" }),
+        frequency: z.enum(["once", "daily", "weekly", "monthly"], { message: "Selecciona una frecuencia" }),
         is_active: z.boolean(),
+        additional_instructions: z.string().optional().nullable(),
       })
     )
     .min(1, "Selecciona al menos una actividad"),
+}).superRefine((values, ctx) => {
+  const hasRecurringActivity = values.activities.some(
+    (activity) => activity.frequency !== "once"
+  );
+
+  if (hasRecurringActivity && !values.end_date) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["end_date"],
+      message: "La fecha fin es obligatoria para actividades recurrentes",
+    });
+  }
+
+  if (hasRecurringActivity && values.end_date && values.end_date <= values.start_date) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["end_date"],
+      message: "Las actividades recurrentes requieren una fecha fin posterior a la fecha de inicio.",
+    });
+  } else if (values.end_date && values.end_date < values.start_date) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["end_date"],
+      message: "La fecha fin no puede ser menor que la fecha inicio",
+    });
+  }
 });
 
 type RoutineFormValues = z.infer<typeof formSchema>;
@@ -26,6 +55,7 @@ type ActivityConfig = {
   time: string;
   frequency: RoutineFrequency;
   is_active: boolean;
+  additional_instructions?: string;
 };
 
 type Props = {
@@ -33,13 +63,16 @@ type Props = {
   loadingActivities: boolean;
   disabled?: boolean;
   submitLabel: string;
-  initialDate?: string;
+  initialStartDate?: string;
+  initialEndDate?: string;
   initialActivities?: Array<{
     activity_id: number;
     time: string;
     frequency: RoutineFrequency;
     is_active: boolean;
+    additional_instructions?: string | null;
   }>;
+  dateRangeMode?: "range" | "single";
   onSubmit: (values: RoutineFormValues) => Promise<void>;
   onCancel: () => void;
 };
@@ -64,8 +97,10 @@ export function RoutineForm({
   loadingActivities,
   disabled = false,
   submitLabel,
-  initialDate,
+  initialStartDate,
+  initialEndDate,
   initialActivities,
+  dateRangeMode = "range",
   onSubmit,
   onCancel,
 }: Props) {
@@ -77,39 +112,74 @@ export function RoutineForm({
         time: item.time,
         frequency: item.frequency,
         is_active: item.is_active,
+        additional_instructions: item.additional_instructions ?? "",
       };
     }
     return map;
   });
   const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({});
+  const savedEndDateRef = useRef(initialEndDate ?? initialStartDate ?? "");
 
   const {
     register,
     handleSubmit,
     setValue,
+    control,
     formState: { errors, isSubmitting },
     setError,
     clearErrors,
   } = useForm<RoutineFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      date: initialDate ?? "",
+      start_date: initialStartDate ?? "",
+      end_date: initialEndDate ?? initialStartDate ?? "",
       activities: initialActivities ?? [],
     },
   });
 
   const grouped = useMemo(() => groupByCategory(activities), [activities]);
+  const startDate = useWatch({ control, name: "start_date" });
+  const endDate = useWatch({ control, name: "end_date" });
+  const isSingleRunOnly =
+    dateRangeMode === "single" ||
+    (selectedIds.length > 0 &&
+      selectedIds.every((id) => (activityConfigs[id]?.frequency ?? "once") === "once"));
 
   useEffect(() => {
     const formActivities = selectedIds.map((id) => ({
       activity_id: id,
       time: activityConfigs[id]?.time ?? "",
-      frequency: activityConfigs[id]?.frequency ?? "daily",
+      frequency: activityConfigs[id]?.frequency ?? "once",
       is_active: activityConfigs[id]?.is_active ?? true,
+      additional_instructions: activityConfigs[id]?.additional_instructions ?? "",
     }));
 
     setValue("activities", formActivities, { shouldValidate: true });
   }, [selectedIds, activityConfigs, setValue]);
+
+  useEffect(() => {
+    if (!isSingleRunOnly && endDate && endDate !== startDate) {
+      savedEndDateRef.current = endDate;
+    }
+  }, [isSingleRunOnly, endDate, startDate]);
+
+  useEffect(() => {
+    if (isSingleRunOnly && startDate) {
+      setValue("end_date", startDate, { shouldValidate: true });
+    }
+  }, [isSingleRunOnly, startDate, setValue]);
+
+  useEffect(() => {
+    if (
+      !isSingleRunOnly &&
+      savedEndDateRef.current &&
+      startDate &&
+      endDate === startDate &&
+      savedEndDateRef.current !== startDate
+    ) {
+      setValue("end_date", savedEndDateRef.current, { shouldValidate: true });
+    }
+  }, [isSingleRunOnly, endDate, setValue, startDate]);
 
   const toggleCategory = (categoryName: string) => {
     setOpenCategories((prev) => ({
@@ -134,8 +204,9 @@ export function RoutineForm({
         ...cfg,
         [activityId]: cfg[activityId] ?? {
           time: "",
-          frequency: "daily",
+          frequency: "once",
           is_active: true,
+          additional_instructions: "",
         },
       }));
       clearErrors("activities");
@@ -147,7 +218,12 @@ export function RoutineForm({
     setActivityConfigs((prev) => ({
       ...prev,
       [activityId]: {
-        ...(prev[activityId] ?? { time: "", frequency: "daily", is_active: true }),
+        ...(prev[activityId] ?? {
+          time: "",
+          frequency: "once",
+          is_active: true,
+          additional_instructions: "",
+        }),
         ...patch,
       },
     }));
@@ -168,22 +244,82 @@ export function RoutineForm({
     await onSubmit(values);
   };
 
+  const schedulingSummary = useMemo(() => {
+    if (!selectedIds.length || !startDate) {
+      return [];
+    }
+
+    return selectedIds
+      .map((id) => {
+        const activity = activities.find((item) => item.id === id);
+        const config = activityConfigs[id];
+
+        if (!activity || !config) return null;
+
+        const effectiveEndDate =
+          config.frequency === "once" ? startDate : endDate || "";
+        const occurrences = generateRecurringDates(
+          startDate,
+          effectiveEndDate,
+          config.frequency
+        );
+
+        return {
+          id,
+          title: activity.title,
+          frequency: config.frequency,
+          startDate,
+          endDate: effectiveEndDate || startDate,
+          occurrencesCount: occurrences.length,
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
+  }, [selectedIds, startDate, endDate, activities, activityConfigs]);
+
   return (
     <form onSubmit={handleSubmit(submitHandler)} className="space-y-6">
       <section className="bg-white border border-border-soft rounded-2xl p-5">
-        <h2 className="text-lg font-semibold text-neutral-dark mb-4">Fecha global de la rutina</h2>
-        <div className="max-w-sm">
-          <label className="text-sm text-neutral-dark flex items-center gap-2">
-            <CalendarDays className="h-4 w-4" /> Fecha inicio
-          </label>
-          <input
-            type="date"
-            {...register("date")}
-            disabled={disabled}
-            className="w-full mt-1 border border-border-soft rounded-lg p-3"
-          />
-          {errors.date && <p className="text-red-500 text-xs mt-1">{errors.date.message}</p>}
+        <h2 className="text-lg font-semibold text-neutral-dark mb-4">Rango de la rutina</h2>
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+          <div>
+            <label className="text-sm text-neutral-dark flex items-center gap-2">
+              <CalendarDays className="h-4 w-4" /> Fecha inicio
+            </label>
+            <input
+              type="date"
+              {...register("start_date")}
+              disabled={disabled}
+              className="w-full mt-1 border border-border-soft rounded-lg p-3"
+            />
+            {errors.start_date && <p className="text-red-500 text-xs mt-1">{errors.start_date.message}</p>}
+          </div>
+
+          <div>
+            <label className="text-sm text-neutral-dark flex items-center gap-2">
+              <CalendarDays className="h-4 w-4" /> Fecha fin
+            </label>
+            <input
+              type="date"
+              {...register("end_date")}
+              min={startDate || undefined}
+              disabled={disabled || isSingleRunOnly}
+              className={`w-full mt-1 border border-border-soft rounded-lg p-3 ${disabled || isSingleRunOnly ? "bg-app-background text-neutral-light" : ""}`}
+            />
+            {errors.end_date && <p className="text-red-500 text-xs mt-1">{errors.end_date.message}</p>}
+          </div>
         </div>
+
+        {isSingleRunOnly && startDate && (
+          <p className="text-xs text-neutral-light mt-3">
+            Para actividades de una sola vez, la fecha fin coincide con la fecha de inicio.
+          </p>
+        )}
+
+        {!isSingleRunOnly && (
+          <p className="text-xs text-neutral-light mt-3">
+            Las actividades recurrentes se generarán automáticamente dentro del rango seleccionado.
+          </p>
+        )}
       </section>
 
       <section className="bg-white border border-border-soft rounded-2xl p-5">
@@ -231,8 +367,9 @@ export function RoutineForm({
                       const selected = selectedIds.includes(activity.id);
                       const cfg = activityConfigs[activity.id] ?? {
                         time: "",
-                        frequency: "daily" as RoutineFrequency,
+                        frequency: "once" as RoutineFrequency,
                         is_active: true,
+                        additional_instructions: "",
                       };
 
                       return (
@@ -282,8 +419,10 @@ export function RoutineForm({
                                   className="w-full mt-1 border border-border-soft rounded-lg p-2 bg-white"
                                   disabled={disabled}
                                 >
-                                  <option value="daily">Daily</option>
-                                  <option value="weekly">Weekly</option>
+                                  <option value="once">Una vez</option>
+                                  <option value="daily">Diaria</option>
+                                  <option value="weekly">Semanal</option>
+                                  <option value="monthly">Mensual</option>
                                 </select>
                               </div>
 
@@ -296,6 +435,26 @@ export function RoutineForm({
                                 />
                                 Rutina activa para esta actividad
                               </label>
+
+                              <div>
+                                <label className="text-xs text-neutral-dark flex items-center gap-1">
+                                  <NotebookPen className="h-3.5 w-3.5" /> Instrucciones para el adulto mayor
+                                </label>
+                                <p className="text-[11px] text-neutral-light mt-1">
+                                  Opcional. Agregue detalles específicos que ayuden al adulto mayor a realizar correctamente esta actividad.
+                                </p>
+                                <textarea
+                                  value={cfg.additional_instructions ?? ""}
+                                  onChange={(e) =>
+                                    updateActivityConfig(activity.id, {
+                                      additional_instructions: e.target.value,
+                                    })
+                                  }
+                                  className="w-full mt-2 border border-border-soft rounded-lg p-2 min-h-24 resize-y"
+                                  placeholder="Ej: Tomar Losartán 50mg después del desayuno."
+                                  disabled={disabled}
+                                />
+                              </div>
                             </div>
                           )}
                         </div>
@@ -310,6 +469,28 @@ export function RoutineForm({
 
         {errors.activities && <p className="text-red-500 text-xs mt-3">{errors.activities.message}</p>}
       </section>
+
+      {schedulingSummary.length > 0 && (
+        <section className="bg-white border border-border-soft rounded-2xl p-5">
+          <h2 className="text-lg font-semibold text-neutral-dark">Resumen de programación</h2>
+          <p className="text-sm text-neutral-light mt-1">
+            Este es el número estimado de ocurrencias que se crearán para cada actividad seleccionada.
+          </p>
+
+          <div className="mt-4 space-y-3">
+            {schedulingSummary.map((item) => (
+              <article key={item.id} className="rounded-xl border border-border-soft p-4">
+                <p className="font-semibold text-neutral-dark">{item.title}</p>
+                <div className="mt-2 text-sm text-neutral-light space-y-1">
+                  <p>Frecuencia: {formatRoutineFrequency(item.frequency)}</p>
+                  <p>Periodo: {item.startDate} - {item.endDate}</p>
+                  <p>Ocurrencias estimadas: {item.occurrencesCount}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="flex flex-col sm:flex-row gap-3 justify-end">
         <button type="button" onClick={onCancel} className="px-5 py-3 rounded-xl border border-border-soft text-neutral-dark hover:bg-hover">

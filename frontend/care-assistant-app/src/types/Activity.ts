@@ -14,7 +14,7 @@ export type ActivityCreate = BaseActivity  // Data you SEND to the backend when 
 export type ActivityWithProgramData = BaseActivity & {
     date?: string;        // "2026-03-31"
     time?: string;        // "08:00"
-    frequency?: "daily" | "weekly";
+    frequency?: "once" | "daily" | "weekly" | "monthly";
     is_active?: boolean;
     elderly_id?: number;
 };
@@ -23,10 +23,10 @@ export type ActivityWithProgramData = BaseActivity & {
 export type ActivityWithProgram = Activity & {
     program: {
         id: number;
+        elderly: number;
         date: string;        // "2026-03-31"
         time: string;        // "08:00"
-        frequency: "daily" | "weekly";
+        frequency: "once" | "daily" | "weekly" | "monthly";
         is_active: boolean;
     }
 }
-

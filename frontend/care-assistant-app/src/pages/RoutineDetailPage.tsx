@@ -15,6 +15,17 @@ function formatDate(value: string) {
   });
 }
 
+function formatFrequency(value: string) {
+  const labels: Record<string, string> = {
+    once: "Una vez",
+    daily: "Diaria",
+    weekly: "Semanal",
+    monthly: "Mensual",
+  };
+
+  return labels[value] ?? value;
+}
+
 export default function RoutineDetailPage() {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -130,7 +141,7 @@ export default function RoutineDetailPage() {
 
             <div className="mt-3 flex flex-wrap gap-3 text-xs text-neutral-light">
               <span className="inline-flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" /> {item.time.slice(0, 5)}</span>
-              <span className="inline-flex items-center gap-1"><Repeat2 className="h-3.5 w-3.5" /> {item.frequency}</span>
+              <span className="inline-flex items-center gap-1"><Repeat2 className="h-3.5 w-3.5" /> {formatFrequency(item.frequency)}</span>
               <span className="inline-flex items-center gap-1"><CalendarDays className="h-3.5 w-3.5" /> {routine.date}</span>
             </div>
 
@@ -154,6 +165,15 @@ export default function RoutineDetailPage() {
                 </span>
               )}
             </div>
+
+            {item.additional_instructions?.trim() && (
+              <div className="mt-4 rounded-xl border border-border-soft bg-app-background p-3">
+                <p className="text-xs font-semibold text-neutral-dark">Instrucciones para el adulto mayor</p>
+                <p className="text-sm text-neutral-light mt-1 whitespace-pre-wrap">
+                  {item.additional_instructions}
+                </p>
+              </div>
+            )}
           </article>
         ))}
       </div>

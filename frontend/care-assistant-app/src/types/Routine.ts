@@ -8,18 +8,20 @@ export type RoutineCatalogActivity = {
   category_icon: string;
 };
 
-export type RoutineFrequency = "daily" | "weekly";
+export type RoutineFrequency = "once" | "daily" | "weekly" | "monthly";
 
 export type RoutineActivityConfig = {
   activity_id: number;
   time: string;
   frequency: RoutineFrequency;
   is_active: boolean;
+  additional_instructions?: string | null;
 };
 
 export type CreateRoutinePayload = {
   elderly_id: number;
-  date: string;
+  start_date: string;
+  end_date: string;
   activities: RoutineActivityConfig[];
 };
 
@@ -28,6 +30,7 @@ export type CreateRoutineResponse = {
   activities_count: number;
   program_ids: number[];
   assignment_ids: number[];
+  scheduled_occurrences_count: number;
 };
 
 export type RoutineListItem = {
@@ -40,6 +43,7 @@ export type RoutineListItem = {
   frequency: RoutineFrequency;
   is_active: boolean;
   status?: "pending" | "completed" | "missed";
+  additional_instructions?: string | null;
 };
 
 export type RoutineByDate = {

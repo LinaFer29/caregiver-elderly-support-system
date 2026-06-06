@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { Eye, EyeOff, ArrowLeft, UserPlus, Info } from "lucide-react";
+import { useEffect } from "react";
+import { ArrowLeft, UserPlus, Info } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -16,19 +16,11 @@ import { isAxiosError } from "axios";
 const elderlySchema = z.object({
     firstName: z.string().min(1, "Nombre es requerido").max(50),
     lastName: z.string().min(1, "Apellido es requerido").max(50),
-    username: z
-        .string()
-        .min(3, "El nombre de usuario debe tener mínimo 3 caracteres")
-        .max(30, "El nombre de usuario debe tener máximo 30 caracteres")
-        .regex(/^[a-zA-Z0-9_.-]+$/, "Solo letras, números, . _ -"),
-    email: z.string().email("Email inválido"),
-    password: z
-        .string()
-        .min(8, "La contraseña debe tener mínimo 8 caracteres")
-        .max(100, "La contraseña debe tener máximo 100 caracteres.")
-        .optional()
-        .or(z.literal("")),
-
+    age: z
+        .number()
+        .int("La edad debe ser un número entero")
+        .min(1, "La edad debe ser mayor que 0")
+        .max(130, "La edad debe ser válida"),
     relationshipToCaregiver: z.string().min(1, "Relación es requerida"),
     dependencyLevel: z.enum(["bajo", "moderado", "alto", "total"],
         {
@@ -62,8 +54,6 @@ export default function RegisterElderlyPage() {
     const params = useParams();
     const isEdit = !!params.id;
 
-    const [showPassword, setShowPassword] = useState(false);
-
     const {
         register,
         handleSubmit,
@@ -85,8 +75,7 @@ export default function RegisterElderlyPage() {
                 reset({
                     firstName: data.first_name,
                     lastName: data.last_name,
-                    username: data.username,
-                    email: data.email,
+                    age: data.age ?? undefined,
                     relationshipToCaregiver: data.relationship_to_caregiver,
                     dependencyLevel: normalizeDependencyLevel(data.dependency_level),
                     conditions: data.underlying_conditions,
@@ -106,14 +95,7 @@ export default function RegisterElderlyPage() {
                 const updatePayload: ElderlyUpdate = {
                     first_name: data.firstName,
                     last_name: data.lastName,
-                    username: data.username,
-                    email: data.email,
-
-                    ...(data.password
-                        ? { password: data.password }
-                        : {}),
-
-                    role: "elderly",
+                    age: data.age,
                     relationship_to_caregiver: data.relationshipToCaregiver,
                     dependency_level: data.dependencyLevel,
                     underlying_conditions: data.conditions,
@@ -135,13 +117,7 @@ export default function RegisterElderlyPage() {
                 const createPayload: ElderlyCreate = {
                     first_name: data.firstName,
                     last_name: data.lastName,
-                    username: data.username,
-                    email: data.email,
-
-                    password: data.password!,
-
-                    role: "elderly",
-
+                    age: data.age,
                     relationship_to_caregiver:
                         data.relationshipToCaregiver,
 
@@ -172,9 +148,7 @@ export default function RegisterElderlyPage() {
                 const fieldMap: Record<string, keyof ElderlyFormData> = {
                     first_name: "firstName",
                     last_name: "lastName",
-                    username: "username",
-                    email: "email",
-                    password: "password",
+                    age: "age",
                     relationship_to_caregiver: "relationshipToCaregiver",
                     dependency_level: "dependencyLevel",
                     underlying_conditions: "conditions",
@@ -235,13 +209,13 @@ export default function RegisterElderlyPage() {
             <div className="bg-white shadow-md rounded-xl border border-border-soft p-6">
                 <div>
                     <span>Información personal</span>
-                    <p>Datos básicos de la cuenta para el usuario de edad avanzada</p>
+                    <p>Datos básicos del adulto mayor asociado al cuidador.</p>
                 </div>
 
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
 
-                    {/* NOMBRES */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* NOMBRES + EDAD */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label className="text-sm">
                                 Nombre <span className="text-red-700">*</span>
@@ -269,68 +243,24 @@ export default function RegisterElderlyPage() {
                                 <p className="text-red-500 text-xs">{errors.lastName.message}</p>
                             )}
                         </div>
-                    </div>
-
-                    {/* USERNAME */}
-                    <div>
-                        <label className="text-sm">
-                            Username
-                            <span className="text-red-700">*</span>
-                        </label>
-                        <input
-                            {...register("username")}
-                            placeholder="john.smith"
-                            className="w-full mt-1 border border-border-soft rounded-lg p-3"
-                        />
-                        {errors.username && (
-                            <p className="text-red-500 text-xs">{errors.username.message}</p>
-                        )}
-                    </div>
-
-                    {/* EMAIL */}
-                    <div>
-                        <label className="text-sm">
-                            Email
-                            <span className="text-red-700">*</span>
-                        </label>
-                        <input
-                            type="email"
-                            {...register("email")}
-                            placeholder="elderly@example.com"
-                            className="w-full mt-1 border border-border-soft rounded-lg p-3"
-                        />
-                        {errors.email && (
-                            <p className="text-red-500 text-xs">{errors.email.message}</p>
-                        )}
-                    </div>
-
-                    {/* PASSWORD SOLO CREATE */}
-                    {!isEdit && (
                         <div>
                             <label className="text-sm">
-                                Contraseña
+                                Edad
                                 <span className="text-red-700">*</span>
                             </label>
-                            <div className="relative">
-                                <input
-                                    type={showPassword ? "text" : "password"}
-                                    {...register("password")}
-                                    placeholder="Al menos 8 caracteres"
-                                    className="w-full mt-1 border border-border-soft rounded-lg p-3"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-5 top-1/2 -translate-y-1/2"
-                                >
-                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                                </button>
-                            </div>
-                            {errors.password && (
-                                <p className="text-red-500 text-xs">{errors.password.message}</p>
+                            <input
+                                type="number"
+                                min="1"
+                                max="130"
+                                {...register("age", { valueAsNumber: true })}
+                                placeholder="75"
+                                className="w-full mt-1 border border-border-soft rounded-lg p-3"
+                            />
+                            {errors.age && (
+                                <p className="text-red-500 text-xs">{errors.age.message}</p>
                             )}
                         </div>
-                    )}
+                    </div>
 
                     <div className="pt-4 border-t border-border-soft">
                         <h3 className="text-base text-neutral-dark mb-1">

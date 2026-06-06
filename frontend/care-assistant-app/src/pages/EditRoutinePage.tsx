@@ -56,7 +56,8 @@ export default function EditRoutinePage() {
     try {
       const updatedRoutine = await updateRoutine(routine.id, {
         elderly_id: selectedElderly.id,
-        date: values.date,
+        start_date: values.start_date,
+        end_date: values.end_date || values.start_date,
         activities: values.activities,
       });
 
@@ -124,13 +125,16 @@ export default function EditRoutinePage() {
         loadingActivities={loadingActivities}
         disabled={!selectedElderly}
         submitLabel="Guardar cambios"
-        initialDate={routine.date}
+        initialStartDate={routine.date}
+        initialEndDate={routine.date}
         initialActivities={routine.items.map((item) => ({
           activity_id: item.activity_id,
           time: item.time.slice(0, 5),
           frequency: item.frequency,
           is_active: item.is_active,
+          additional_instructions: item.additional_instructions ?? "",
         }))}
+        dateRangeMode="single"
         onSubmit={onSubmit}
         onCancel={() => navigate(`/routines/${encodeURIComponent(routine.id)}`)}
       />

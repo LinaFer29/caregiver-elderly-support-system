@@ -47,6 +47,12 @@ export default function Login() {
             if (isAxiosError(error)) {
                 if (error.response?.status === 404) {
                     setFormError("No se encontraron coincidencias para el usuario ingresado.");
+                } else if (error.response?.status === 400) {
+                    setFormError(
+                        typeof error.response?.data?.detail === "string"
+                            ? error.response.data.detail
+                            : "Verifica los datos ingresados e intenta nuevamente."
+                    );
                 } else if (error.response?.status === 401) {
                     setFormError("Usuario o contraseña incorrectos.");
                 } else {

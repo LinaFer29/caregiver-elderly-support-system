@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { authService } from "../services/auth.service";
+import { isAxiosError } from "axios";
 
 const registerSchema = z.object({
     firstName: z.string().trim().min(1, "Nombre es requerido").max(50),
@@ -39,7 +40,7 @@ export default function Register() {
     });
 
     const onSubmit = async (data: RegisterFormData) => {
-        console.log("REGISTER DATA:", data);
+        setFormError(null);
 
         try {
             await authService.register({
@@ -53,8 +54,29 @@ export default function Register() {
             });
 
             navigate("/login");
-        } catch (error) {
+        } catch (error: unknown) {
             console.error(error);
+
+            if (isAxiosError(error)) {
+                const responseData = error.response?.data;
+
+                if (typeof responseData?.detail === "string") {
+                    setFormError(responseData.detail);
+                    return;
+                }
+
+                if (responseData && typeof responseData === "object") {
+                    const firstError = Object.values(responseData).find((value) =>
+                        Array.isArray(value) && typeof value[0] === "string"
+                    );
+
+                    if (Array.isArray(firstError) && typeof firstError[0] === "string") {
+                        setFormError(firstError[0]);
+                        return;
+                    }
+                }
+            }
+
             setFormError("Error al registrar usuario");
         }
     };

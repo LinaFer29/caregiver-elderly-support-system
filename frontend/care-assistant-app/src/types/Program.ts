@@ -1,8 +1,9 @@
 type BaseProgram = {
+    elderly: number
     activity: number
     date: string
     time: string
-    frequency: "daily" | "weekly"
+    frequency: "once" | "daily" | "weekly" | "monthly"
     is_active: boolean
 }
 

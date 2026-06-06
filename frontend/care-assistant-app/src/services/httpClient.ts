@@ -9,9 +9,14 @@ export const httpClient = axios.create({
 });
 
 httpClient.interceptors.request.use((config) => {
+  const requestUrl = String(config.url || "");
+  const isAuthRoute =
+    requestUrl.includes("/login/") ||
+    requestUrl.includes("/register/") ||
+    requestUrl.includes("/refresh/");
   const token = localStorage.getItem("access");
 
-  if (token) {
+  if (token && !isAuthRoute) {
     config.headers.Authorization = `Bearer ${token}`;
   }
 

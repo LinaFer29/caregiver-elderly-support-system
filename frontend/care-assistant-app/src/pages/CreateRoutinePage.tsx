@@ -41,20 +41,24 @@ export default function CreateRoutinePage() {
     }
 
     try {
-      await createRoutine({
+      const response = await createRoutine({
         elderly_id: selectedElderly.id,
-        date: values.date,
+        start_date: values.start_date,
+        end_date: values.end_date || values.start_date,
         activities: values.activities,
       });
 
-      toast.success("Rutina creada correctamente", {
-        position: "top-center",
-        duration: 3000,
-        style: {
-          background: "#4BB543",
-          color: "#fff",
-        },
-      });
+      toast.success(
+        `Rutina creada correctamente. Se generaron ${response.scheduled_occurrences_count} actividades programadas.`,
+        {
+          position: "top-center",
+          duration: 3000,
+          style: {
+            background: "#4BB543",
+            color: "#fff",
+          },
+        }
+      );
 
       navigate("/routines");
     } catch (error) {

@@ -9,10 +9,12 @@ import { ArrowLeftFromLine, Calendar, Clock, Repeat } from "lucide-react";
 import type { Program } from "../types/Program";
 import { getAllPrograms } from "../services/programs.services";
 import { DynamicIcon } from "../components/DynamicIcon";
+import { useSelectedElderly } from "../context/useSelectedElderly";
 
 export function ActivityDetailPage() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { selectedElderly } = useSelectedElderly();
 
     const [activity, setActivity] = useState<Activity | null>(null);
     const [category, setCategory] = useState<Category | undefined>();
@@ -25,7 +27,7 @@ export function ActivityDetailPage() {
 
                 const activityData = await getActivityById(Number(id));
                 const categories = await getAllCategories();
-                const programData = await getAllPrograms();
+                const programData = await getAllPrograms(selectedElderly?.id);
 
                 setActivity(activityData);
 
@@ -44,7 +46,7 @@ export function ActivityDetailPage() {
         }
 
         loadData();
-    }, [id]);
+    }, [id, selectedElderly?.id]);
 
     if (!activity) {
         return <p>Cargando actividad...</p>;
