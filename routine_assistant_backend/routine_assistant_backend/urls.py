@@ -24,4 +24,5 @@ urlpatterns = [
     path('api/v1/', include('activities.urls')),
     path('api/v1/', include('users.urls')),
     path('api/v1/', include('routines.urls')),
+    path('api/voice/', include('voice.urls')),
 ]

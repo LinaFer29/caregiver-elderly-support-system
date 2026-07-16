@@ -51,6 +51,7 @@ build/
 !.env.example
 *.local
 frontend/care-assistant-app/src/config/env.ts
+ESP32/config.py
 
 # =========================
 # Package manager artifacts

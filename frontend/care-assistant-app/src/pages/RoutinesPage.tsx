@@ -59,7 +59,7 @@ export default function RoutinesPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-neutral-dark">Routines</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-neutral-dark">Rutinas</h1>
           <p className="text-neutral-light mt-1">Rutinas creadas para el adulto mayor seleccionado.</p>
         </div>
 

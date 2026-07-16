@@ -1,0 +1,592 @@
+REQUERIMIENTOS FUNCIONALES DEL SISTEMA
+
+Basados exclusivamente en las funcionalidades actualmente implementadas en el sistema.
+
+=====================================================================
+ACTOR: ADMINISTRADOR
+=====================================================================
+
+RF-01 Gestión de actividades predefinidas
+
+Descripción:
+El sistema debe permitir al administrador registrar, consultar, actualizar y eliminar actividades predefinidas que serán utilizadas posteriormente por los cuidadores al momento de construir rutinas para los adultos mayores.
+
+Actor:
+Administrador.
+
+Precondiciones:
+- El administrador debe contar con credenciales válidas de acceso al sistema.
+- El administrador debe haber iniciado sesión en el panel de administración.
+
+Flujo principal:
+1. El administrador accede al módulo de administración del sistema.
+2. El administrador consulta el listado de actividades existentes.
+3. El administrador selecciona la opción para crear, editar o eliminar una actividad.
+4. El sistema registra la operación realizada.
+5. El sistema actualiza el catálogo disponible de actividades.
+
+Postcondiciones:
+- La actividad queda registrada, modificada o eliminada según la acción ejecutada.
+- El catálogo de actividades disponible para la planificación de rutinas queda actualizado.
+
+RF-02 Gestión de categorías de actividades
+
+Descripción:
+El sistema debe permitir al administrador registrar, consultar, actualizar y eliminar categorías para clasificar las actividades predefinidas del sistema.
+
+Actor:
+Administrador.
+
+Precondiciones:
+- El administrador debe contar con credenciales válidas de acceso al sistema.
+- El administrador debe haber iniciado sesión en el panel de administración.
+
+Flujo principal:
+1. El administrador accede al módulo de administración del sistema.
+2. El administrador consulta el listado de categorías existentes.
+3. El administrador selecciona la opción para crear, editar o eliminar una categoría.
+4. El sistema registra la operación realizada.
+5. El sistema actualiza la clasificación disponible para las actividades.
+
+Postcondiciones:
+- La categoría queda registrada, modificada o eliminada según la acción ejecutada.
+- La organización del catálogo de actividades queda actualizada.
+
+=====================================================================
+ACTOR: CUIDADOR
+=====================================================================
+
+RF-03 Registro de cuenta de cuidador
+
+Descripción:
+El sistema debe permitir a una persona registrarse como cuidador mediante el ingreso de sus datos personales y de acceso, para habilitar el uso de la plataforma.
+
+Actor:
+Cuidador.
+
+Precondiciones:
+- El cuidador no debe tener una cuenta activa registrada con las mismas credenciales exigidas por el sistema.
+
+Flujo principal:
+1. El cuidador accede al formulario de registro.
+2. El cuidador ingresa su información personal y de acceso.
+3. El cuidador confirma el envío del formulario.
+4. El sistema valida la información suministrada.
+5. El sistema registra la cuenta del cuidador.
+
+Postcondiciones:
+- La cuenta del cuidador queda creada en el sistema.
+- El cuidador puede proceder a iniciar sesión.
+
+RF-04 Inicio de sesión del cuidador
+
+Descripción:
+El sistema debe permitir al cuidador autenticarse mediante sus credenciales de acceso para ingresar a las funcionalidades privadas de la plataforma.
+
+Actor:
+Cuidador.
+
+Precondiciones:
+- El cuidador debe estar registrado en el sistema.
+- El cuidador debe disponer de credenciales válidas.
+
+Flujo principal:
+1. El cuidador accede al formulario de inicio de sesión.
+2. El cuidador ingresa su identificador de acceso y contraseña.
+3. El sistema valida las credenciales.
+4. El sistema habilita el acceso al entorno privado.
+
+Postcondiciones:
+- El cuidador inicia sesión correctamente en el sistema.
+
+RF-05 Cierre de sesión del cuidador
+
+Descripción:
+El sistema debe permitir al cuidador cerrar su sesión para finalizar de forma segura el acceso a la plataforma.
+
+Actor:
+Cuidador.
+
+Precondiciones:
+- El cuidador debe haber iniciado sesión.
+
+Flujo principal:
+1. El cuidador accede al menú de usuario.
+2. El cuidador selecciona la opción de cerrar sesión.
+3. El sistema finaliza la sesión activa.
+4. El sistema redirige al cuidador a la pantalla de autenticación.
+
+Postcondiciones:
+- La sesión del cuidador queda cerrada.
+- Las funcionalidades privadas dejan de estar disponibles hasta un nuevo inicio de sesión.
+
+RF-06 Consulta de información del perfil autenticado
+
+Descripción:
+El sistema debe mostrar al cuidador autenticado la información básica asociada a su cuenta dentro de la interfaz de usuario.
+
+Actor:
+Cuidador.
+
+Precondiciones:
+- El cuidador debe haber iniciado sesión.
+
+Flujo principal:
+1. El cuidador accede al entorno principal del sistema.
+2. El sistema recupera los datos básicos de la cuenta autenticada.
+3. El sistema presenta la información del perfil en la interfaz.
+
+Postcondiciones:
+- El cuidador visualiza su información básica de cuenta.
+
+RF-07 Registro de perfiles de adultos mayores
+
+Descripción:
+El sistema debe permitir al cuidador registrar perfiles de adultos mayores asociados a su cuenta para poder gestionar posteriormente sus rutinas y actividades.
+
+Actor:
+Cuidador.
+
+Precondiciones:
+- El cuidador debe haber iniciado sesión.
+
+Flujo principal:
+1. El cuidador accede al formulario de registro de adulto mayor.
+2. El cuidador diligencia la información personal y de atención requerida.
+3. El cuidador confirma el registro.
+4. El sistema valida y almacena la información.
+
+Postcondiciones:
+- El perfil del adulto mayor queda registrado y asociado al cuidador.
+
+RF-08 Consulta de perfiles de adultos mayores
+
+Descripción:
+El sistema debe permitir al cuidador consultar el listado de adultos mayores asociados a su cuenta.
+
+Actor:
+Cuidador.
+
+Precondiciones:
+- El cuidador debe haber iniciado sesión.
+
+Flujo principal:
+1. El cuidador accede al módulo de adultos mayores.
+2. El sistema recupera los perfiles asociados al cuidador.
+3. El sistema muestra el listado correspondiente.
+
+Postcondiciones:
+- El cuidador visualiza los perfiles de adultos mayores registrados bajo su cuidado.
+
+RF-09 Actualización de perfiles de adultos mayores
+
+Descripción:
+El sistema debe permitir al cuidador modificar la información de un perfil de adulto mayor previamente registrado.
+
+Actor:
+Cuidador.
+
+Precondiciones:
+- El cuidador debe haber iniciado sesión.
+- Debe existir al menos un perfil de adulto mayor registrado a su nombre.
+
+Flujo principal:
+1. El cuidador accede al listado de adultos mayores.
+2. El cuidador selecciona un perfil para editar.
+3. El sistema presenta la información actual del perfil.
+4. El cuidador modifica los datos necesarios.
+5. El sistema valida y guarda los cambios.
+
+Postcondiciones:
+- La información del perfil del adulto mayor queda actualizada.
+
+RF-10 Eliminación de perfiles de adultos mayores
+
+Descripción:
+El sistema debe permitir al cuidador eliminar un perfil de adulto mayor asociado a su cuenta.
+
+Actor:
+Cuidador.
+
+Precondiciones:
+- El cuidador debe haber iniciado sesión.
+- Debe existir al menos un perfil de adulto mayor registrado a su nombre.
+
+Flujo principal:
+1. El cuidador accede al listado de adultos mayores.
+2. El cuidador selecciona la opción de eliminar un perfil.
+3. El sistema solicita confirmación de la acción.
+4. El cuidador confirma la eliminación.
+5. El sistema elimina el perfil seleccionado.
+
+Postcondiciones:
+- El perfil del adulto mayor deja de estar disponible en el listado del cuidador.
+
+RF-11 Selección de adulto mayor activo
+
+Descripción:
+El sistema debe permitir al cuidador seleccionar uno de sus adultos mayores registrados como perfil activo de trabajo para contextualizar la información mostrada en la plataforma.
+
+Actor:
+Cuidador.
+
+Precondiciones:
+- El cuidador debe haber iniciado sesión.
+- Debe existir al menos un adulto mayor registrado asociado a su cuenta.
+
+Flujo principal:
+1. El cuidador accede al selector de perfiles.
+2. El sistema muestra los adultos mayores disponibles.
+3. El cuidador selecciona un perfil.
+4. El sistema establece dicho perfil como adulto mayor activo.
+5. El sistema actualiza las vistas dependientes del contexto seleccionado.
+
+Postcondiciones:
+- El adulto mayor seleccionado queda establecido como perfil activo.
+
+RF-12 Restricción de acceso sin adultos mayores registrados
+
+Descripción:
+El sistema debe restringir el acceso del cuidador a los módulos operativos principales cuando no tenga adultos mayores registrados, guiándolo primero al registro de dichos perfiles.
+
+Actor:
+Cuidador.
+
+Precondiciones:
+- El cuidador debe haber iniciado sesión.
+- El cuidador no debe tener perfiles de adultos mayores registrados.
+
+Flujo principal:
+1. El cuidador intenta acceder a un módulo operativo del sistema.
+2. El sistema verifica si existen adultos mayores asociados a su cuenta.
+3. Si no existen, el sistema redirige al cuidador a una vista informativa.
+4. El sistema ofrece acceso al registro o consulta de perfiles de adultos mayores.
+
+Postcondiciones:
+- El cuidador es guiado al registro previo de adultos mayores antes de continuar con el uso operativo del sistema.
+
+RF-13 Visualización del tablero principal
+
+Descripción:
+El sistema debe presentar al cuidador un tablero resumen del adulto mayor activo, con información general sobre rutinas y actividades programadas.
+
+Actor:
+Cuidador.
+
+Precondiciones:
+- El cuidador debe haber iniciado sesión.
+- Debe existir un adulto mayor activo seleccionado.
+
+Flujo principal:
+1. El cuidador accede al tablero principal.
+2. El sistema consulta la información asociada al adulto mayor activo.
+3. El sistema muestra indicadores de resumen, actividades próximas y accesos rápidos.
+
+Postcondiciones:
+- El cuidador visualiza una síntesis del estado operativo del adulto mayor seleccionado.
+
+RF-14 Consulta del catálogo de actividades predefinidas
+
+Descripción:
+El sistema debe permitir al cuidador consultar el catálogo de actividades predefinidas disponibles, organizadas por categorías, para utilizarlas en la creación de rutinas.
+
+Actor:
+Cuidador.
+
+Precondiciones:
+- El cuidador debe haber iniciado sesión.
+- Debe existir al menos un adulto mayor registrado cuando el flujo del sistema así lo requiera.
+
+Flujo principal:
+1. El cuidador accede al catálogo de actividades.
+2. El sistema recupera las actividades predefinidas existentes.
+3. El sistema organiza las actividades por categoría.
+4. El sistema muestra el catálogo al cuidador.
+
+Postcondiciones:
+- El cuidador dispone de un catálogo consultable de actividades para planificar rutinas.
+
+RF-15 Creación de rutinas para un adulto mayor
+
+Descripción:
+El sistema debe permitir al cuidador crear rutinas para un adulto mayor, seleccionando actividades predefinidas y configurando su programación.
+
+Actor:
+Cuidador.
+
+Precondiciones:
+- El cuidador debe haber iniciado sesión.
+- Debe existir un adulto mayor activo seleccionado.
+- Deben existir actividades predefinidas registradas en el sistema.
+
+Flujo principal:
+1. El cuidador accede al formulario de creación de rutinas.
+2. El sistema muestra el catálogo de actividades disponibles.
+3. El cuidador selecciona una o varias actividades.
+4. El cuidador define la fecha de inicio y, cuando corresponda, la fecha de fin.
+5. El cuidador configura para cada actividad su hora, frecuencia, estado e instrucciones adicionales.
+6. El sistema valida la información ingresada.
+7. El sistema registra la rutina y sus ocurrencias programadas.
+
+Postcondiciones:
+- La rutina queda creada y asociada al adulto mayor seleccionado.
+- Las actividades programadas derivadas de la rutina quedan registradas en el sistema.
+
+RF-16 Configuración de recurrencia en rutinas
+
+Descripción:
+El sistema debe permitir al cuidador definir la frecuencia de ejecución de cada actividad incluida en una rutina, contemplando programaciones de una sola vez o recurrentes.
+
+Actor:
+Cuidador.
+
+Precondiciones:
+- El cuidador debe haber iniciado sesión.
+- El cuidador debe encontrarse en el proceso de creación o edición de una rutina.
+
+Flujo principal:
+1. El cuidador selecciona una actividad dentro de la rutina.
+2. El cuidador define la frecuencia de ejecución de la actividad.
+3. El sistema valida la coherencia entre frecuencia y rango de fechas.
+4. El sistema calcula la programación correspondiente.
+
+Postcondiciones:
+- La actividad queda configurada con la recurrencia definida por el cuidador.
+
+RF-17 Registro de instrucciones adicionales en actividades de rutina
+
+Descripción:
+El sistema debe permitir al cuidador registrar instrucciones adicionales para orientar la ejecución de cada actividad incluida en una rutina.
+
+Actor:
+Cuidador.
+
+Precondiciones:
+- El cuidador debe haber iniciado sesión.
+- El cuidador debe encontrarse en el proceso de creación o edición de una rutina.
+
+Flujo principal:
+1. El cuidador selecciona una actividad dentro de la rutina.
+2. El cuidador ingresa instrucciones complementarias para dicha actividad.
+3. El sistema almacena la información junto con la configuración de la rutina.
+
+Postcondiciones:
+- Las instrucciones adicionales quedan asociadas a la actividad programada.
+
+RF-18 Visualización del resumen de programación de una rutina
+
+Descripción:
+El sistema debe mostrar al cuidador un resumen estimado de la programación resultante de la configuración realizada en una rutina antes de su almacenamiento definitivo.
+
+Actor:
+Cuidador.
+
+Precondiciones:
+- El cuidador debe haber iniciado sesión.
+- El cuidador debe encontrarse creando o editando una rutina con al menos una actividad seleccionada.
+
+Flujo principal:
+1. El cuidador configura las actividades de la rutina.
+2. El sistema procesa fechas y frecuencias definidas.
+3. El sistema presenta un resumen de ocurrencias estimadas por actividad.
+
+Postcondiciones:
+- El cuidador puede visualizar una síntesis previa de la programación que será generada.
+
+RF-19 Consulta del listado de rutinas por adulto mayor
+
+Descripción:
+El sistema debe permitir al cuidador consultar las rutinas registradas para el adulto mayor activo, agrupadas por fecha y con sus actividades correspondientes.
+
+Actor:
+Cuidador.
+
+Precondiciones:
+- El cuidador debe haber iniciado sesión.
+- Debe existir un adulto mayor activo seleccionado.
+
+Flujo principal:
+1. El cuidador accede al módulo de rutinas.
+2. El sistema recupera las rutinas asociadas al adulto mayor activo.
+3. El sistema presenta el listado de rutinas disponibles.
+
+Postcondiciones:
+- El cuidador visualiza las rutinas registradas del adulto mayor seleccionado.
+
+RF-20 Consulta de detalle de una rutina
+
+Descripción:
+El sistema debe permitir al cuidador consultar el detalle de una rutina específica, incluyendo las actividades programadas y su estado general.
+
+Actor:
+Cuidador.
+
+Precondiciones:
+- El cuidador debe haber iniciado sesión.
+- Debe existir una rutina previamente registrada para el adulto mayor correspondiente.
+
+Flujo principal:
+1. El cuidador selecciona una rutina del listado disponible.
+2. El sistema recupera la información detallada de la rutina.
+3. El sistema muestra las actividades asociadas, su programación y el estado general de la rutina.
+
+Postcondiciones:
+- El cuidador visualiza el detalle completo de la rutina seleccionada.
+
+RF-21 Actualización de rutinas
+
+Descripción:
+El sistema debe permitir al cuidador modificar una rutina previamente registrada para ajustar actividades, horarios, fechas, frecuencias, estados e instrucciones.
+
+Actor:
+Cuidador.
+
+Precondiciones:
+- El cuidador debe haber iniciado sesión.
+- Debe existir una rutina previamente registrada.
+
+Flujo principal:
+1. El cuidador accede al detalle de una rutina.
+2. El cuidador selecciona la opción de edición.
+3. El sistema muestra la configuración actual de la rutina.
+4. El cuidador realiza las modificaciones necesarias.
+5. El sistema valida la información ingresada.
+6. El sistema actualiza la rutina registrada.
+
+Postcondiciones:
+- La rutina queda actualizada conforme a la nueva configuración definida por el cuidador.
+
+RF-22 Eliminación de rutinas
+
+Descripción:
+El sistema debe permitir al cuidador eliminar una rutina previamente registrada para un adulto mayor.
+
+Actor:
+Cuidador.
+
+Precondiciones:
+- El cuidador debe haber iniciado sesión.
+- Debe existir una rutina previamente registrada.
+
+Flujo principal:
+1. El cuidador accede al detalle de una rutina.
+2. El cuidador selecciona la opción de eliminar.
+3. El sistema solicita confirmación de la acción.
+4. El cuidador confirma la eliminación.
+5. El sistema elimina la rutina seleccionada.
+
+Postcondiciones:
+- La rutina eliminada deja de estar disponible en el sistema.
+
+=====================================================================
+ACTOR: ADULTO MAYOR
+=====================================================================
+
+No se identificaron funcionalidades de interacción directa implementadas actualmente para el actor Adulto Mayor dentro de la aplicación analizada.
+
+- recibir recordatorio de la actividad que debe realizar
+- poder responder al recordatorio indicando su estado: si lo hice, lo aplace, no responde, etc.
+¿que mas necesita un adulto mayor en el siste?
+
+RF-23 Recepción de recordatorios de actividades
+
+Descripción:
+El sistema debe notificar al adulto mayor cuando exista una actividad programada pendiente de realizar.
+
+Actor:
+Adulto Mayor.
+
+Precondiciones:
+- Debe existir una actividad programada para el adulto mayor.
+- La hora programada de la actividad debe haber sido alcanzada.
+
+Flujo principal:
+1. El sistema identifica una actividad programada.
+2. El sistema genera un mensaje de voz.
+3. El dispositivo reproduce el recordatorio al adulto mayor.
+
+Postcondiciones:
+- El adulto mayor recibe la notificación de la actividad correspondiente.
+
+
+RF-24 Reproducción de instrucciones de la actividad
+
+Descripción:
+El sistema debe comunicar al adulto mayor la información asociada a la actividad programada, incluyendo indicaciones adicionales cuando hayan sido registradas por el cuidador.
+
+Actor:
+Adulto Mayor.
+
+Precondiciones:
+- Debe existir una actividad programada.
+- La actividad puede contener instrucciones adicionales.
+
+Flujo principal:
+1. El sistema recupera la información de la actividad.
+2. El sistema genera el mensaje de voz correspondiente.
+3. El dispositivo reproduce la información al adulto mayor.
+
+Postcondiciones:
+El adulto mayor recibe las instrucciones necesarias para realizar la actividad.
+
+
+RF-25 Registro de respuesta del adulto mayor
+
+Descripción:
+El sistema debe permitir que el adulto mayor responda a un recordatorio mediante comandos de voz.
+
+Actor:
+Adulto Mayor.
+
+Precondiciones:
+Debe haberse emitido previamente un recordatorio.
+El dispositivo debe encontrarse disponible para recibir una respuesta.
+
+Flujo principal:
+El adulto mayor responde al recordatorio.
+El sistema captura el audio.
+El sistema procesa la respuesta.
+El sistema registra el estado correspondiente de la actividad.
+
+Postcondiciones:
+La respuesta del adulto mayor queda almacenada en el sistema.
+
+RF-26 Solicitud de repetición de recordatorio
+
+Descripción:
+El sistema debe permitir que el adulto mayor solicite nuevamente la información de una actividad cuando no haya comprendido el mensaje inicial.
+
+Actor:
+Adulto Mayor.
+
+Precondiciones:
+Debe haberse emitido un recordatorio previamente.
+
+Flujo principal:
+El adulto mayor solicita la repetición del mensaje.
+El sistema identifica la actividad correspondiente.
+El sistema reproduce nuevamente la información de la actividad.
+
+Postcondiciones:
+El adulto mayor vuelve a recibir el recordatorio solicitado.
+
+
+RF-27 Confirmación de realización de actividad
+
+Descripción:
+El sistema debe permitir que el adulto mayor confirme que ha completado una actividad programada.
+
+Actor:
+Adulto Mayor.
+
+Precondiciones:
+Debe existir una actividad pendiente.
+El sistema debe haber emitido el recordatorio correspondiente.
+
+Flujo principal:
+El adulto mayor indica que realizó la actividad.
+El sistema procesa la respuesta.
+El sistema actualiza el estado de la actividad como completada.
+
+Postcondiciones:
+La actividad queda registrada como completada.

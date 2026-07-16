@@ -44,9 +44,9 @@ export default function ActivitiesCatalogPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl md:text-3xl font-bold text-neutral-dark">Activity Catalog</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-neutral-dark">Catálogo de actividades</h1>
         <p className="text-neutral-light mt-1">
-          Explore available activities managed by the system.
+          Explore las actividades disponibles gestionadas por el sistema.
         </p>
       </div>
 
