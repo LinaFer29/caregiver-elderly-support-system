@@ -3,6 +3,7 @@
 import urequests
 
 from config import BACKEND_HOST, BACKEND_PORT
+from models.reminder import Reminder
 
 
 class HttpService:
@@ -54,3 +55,27 @@ class HttpService:
                 response.close()
             except Exception:
                 pass
+
+    def get_reminders(self, elderly_id):
+        """Return a list of Reminder objects for the given elderly profile."""
+
+        endpoint = "/api/voice/reminders?elderly_id={}".format(elderly_id)
+        data = self.get(endpoint)
+
+        if data is None:
+            return None
+
+        if not isinstance(data, list):
+            print("Error: la respuesta del servidor no es una lista valida.")
+            return None
+
+        reminders = []
+
+        try:
+            for item in data:
+                reminders.append(Reminder.from_dict(item))
+        except Exception as exc:
+            print("Error al convertir la respuesta en recordatorios:", exc)
+            return None
+
+        return reminders
