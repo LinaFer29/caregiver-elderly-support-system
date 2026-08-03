@@ -13,4 +13,5 @@ urlpatterns = [
     path('login/', views.CustomLoginView.as_view(), name='custom-login'),
     path('refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('me/', views.MeView.as_view(), name='me'),
+    path('devices/associate/', views.DeviceAssociationView.as_view(), name='device-associate'),
 ]

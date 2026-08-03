@@ -1,6 +1,9 @@
 """Services related to the voice assistant orchestration workflow."""
 
+from .audio_service import AudioProcessingService
 from .reminder_service import ReminderService
+from .response_service import ResponseService
+from .whisper_service import WhisperService
 
 
 class VoiceAssistantService:
@@ -11,12 +14,21 @@ class VoiceAssistantService:
     such as ReminderService, without directly querying application models.
     """
 
-    def __init__(self, reminder_service=None):
+    def __init__(
+        self,
+        reminder_service=None,
+        audio_service=None,
+        whisper_service=None,
+        response_service=None,
+    ):
         """Initialize the service with its reminder dependency."""
 
         self.reminder_service = reminder_service or ReminderService()
+        self.audio_service = audio_service or AudioProcessingService()
+        self.whisper_service = whisper_service or WhisperService()
+        self.response_service = response_service or ResponseService()
 
-    def get_due_reminders(self, elderly_id):
+    def get_due_reminders(self, mac_address):
         """Build the reminder payload consumed by the voice assistant.
 
         This method retrieves due Assignment records through ReminderService
@@ -25,7 +37,7 @@ class VoiceAssistantService:
         """
 
         reminders = []
-        assignments = self.reminder_service.get_due_assignments(elderly_id)
+        assignments = self.reminder_service.get_due_assignments(mac_address)
 
         for assignment in assignments:
             instructions = (assignment.additional_instructions or "").strip()
@@ -51,3 +63,20 @@ class VoiceAssistantService:
             )
 
         return reminders
+
+    def process_speech_command(self, audio_file, sample_rate=None):
+        """Process an uploaded audio file and resolve the assistant response."""
+
+        waveform = self.audio_service.process(audio_file, sample_rate=sample_rate)
+        transcription = self.whisper_service.transcribe(waveform)
+        return self.response_service.build_response(transcription)
+
+    def process_pcm16_command(self, audio_bytes, sample_rate=None):
+        """Process a raw PCM16 stream and resolve the assistant response."""
+
+        waveform = self.audio_service.process_pcm16_stream(
+            audio_bytes,
+            sample_rate=sample_rate,
+        )
+        transcription = self.whisper_service.transcribe(waveform)
+        return self.response_service.build_response(transcription)

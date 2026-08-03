@@ -56,10 +56,10 @@ class HttpService:
             except Exception:
                 pass
 
-    def get_reminders(self, elderly_id):
-        """Return a list of Reminder objects for the given elderly profile."""
+    def get_reminders(self, mac_address):
+        """Return a list of Reminder objects for the given device MAC."""
 
-        endpoint = "/api/voice/reminders?elderly_id={}".format(elderly_id)
+        endpoint = "/api/voice/reminders?mac_address={}".format(mac_address)
         data = self.get(endpoint)
 
         if data is None:

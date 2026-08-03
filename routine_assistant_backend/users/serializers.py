@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Caregiver, Elderly, User
+from .models import Caregiver, Device, Elderly, User
 
 class UserRegisterSerializer(serializers.ModelSerializer):
     caregiver_type = serializers.CharField(write_only=True)
@@ -75,4 +75,35 @@ class ElderlySerializer(serializers.ModelSerializer):
         )
         instance.save()
         return instance
-        
+
+
+class DeviceAssociationSerializer(serializers.Serializer):
+    elderly_id = serializers.IntegerField(min_value=1)
+    name = serializers.CharField(max_length=100)
+    serial_number = serializers.CharField(max_length=100)
+
+    def validate_name(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("El nombre del dispositivo es obligatorio.")
+        return value
+
+    def validate_serial_number(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("El número de serie es obligatorio.")
+        return value
+
+
+class DeviceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Device
+        fields = (
+            "id",
+            "name",
+            "serial_number",
+            "mac_address",
+            "model",
+            "status",
+            "elderly",
+        )

@@ -19,6 +19,7 @@ import RoutinesPage from "./pages/RoutinesPage"
 import RoutineDetailPage from "./pages/RoutineDetailPage"
 import EditRoutinePage from "./pages/EditRoutinePage"
 import DashboardPage from "./pages/DashboardPage"
+import DeviceLinkPage from "./pages/DeviceLinkPage"
 
 function App() {
   return (
@@ -51,6 +52,7 @@ function App() {
                 <Route path="/elderly-create" element={<RegisterElderlyPage />} />
                 <Route path="/elderly-required" element={<ElderlyRequiredPage />} />
                 <Route path="/elderly/:id" element={<RegisterElderlyPage />} />
+                <Route path="/devices/link" element={<DeviceLinkPage />} />
               </Route>
             </Route>
           </Route>

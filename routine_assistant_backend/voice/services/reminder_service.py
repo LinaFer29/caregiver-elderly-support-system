@@ -3,6 +3,7 @@
 from django.utils import timezone
 
 from routines.models import Assignment
+from users.models import Device
 
 
 class ReminderService:
@@ -13,16 +14,36 @@ class ReminderService:
     next pending reminder for a specific elderly profile.
     """
 
-    def get_due_assignments(self, elderly_id):
+    def _get_elderly_id_from_mac(self, mac_address):
+        if not mac_address:
+            return None
+
+        device = (
+            Device.objects.select_related("elderly")
+            .filter(mac_address__iexact=mac_address.strip())
+            .first()
+        )
+
+        if not device or not device.elderly_id:
+            return None
+
+        return device.elderly_id
+
+    def get_due_assignments(self, mac_address):
         """Return pending assignments due for processing at the current time.
 
-        This method retrieves today's Assignment records whose notification time
-        has already been reached for the provided elderly profile and that are
-        still pending, ordered from the earliest scheduled time to the latest.
+        This method resolves the elderly profile assigned to the provided
+        device MAC address and retrieves today's pending Assignment records
+        whose notification time has already been reached, ordered from the
+        earliest scheduled time to the latest.
         """
         now = timezone.localtime()
         current_date = now.date()
         current_time = now.time()
+        elderly_id = self._get_elderly_id_from_mac(mac_address)
+
+        if elderly_id is None:
+            return Assignment.objects.none()
 
         return (
             Assignment.objects.filter(
@@ -35,15 +56,20 @@ class ReminderService:
             .order_by("notification_time")
         )
 
-    def get_next_pending_assignment(self, elderly_id):
+    def get_next_pending_assignment(self, mac_address):
         """Return the next pending assignment for an elderly profile today.
 
-        This method retrieves the first Assignment scheduled later today for
-        the provided elderly profile, as long as it remains pending.
+        This method resolves the elderly profile assigned to the provided
+        device MAC address and retrieves the first Assignment scheduled later
+        today, as long as it remains pending.
         """
         now = timezone.localtime()
         current_date = now.date()
         current_time = now.time()
+        elderly_id = self._get_elderly_id_from_mac(mac_address)
+
+        if elderly_id is None:
+            return None
 
         return (
             Assignment.objects.filter(

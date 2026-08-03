@@ -3,13 +3,18 @@
 import network
 import time
 
-from config import WIFI_PASSWORD, WIFI_SSID
+from config import WIFI_PASSWORD, WIFI_SSID, WIFI_TIMEOUT_SECONDS
 
 
 class WiFiService:
     """Encapsulate WiFi connection management for station mode."""
 
-    def __init__(self, ssid=WIFI_SSID, password=WIFI_PASSWORD, timeout_seconds=15):
+    def __init__(
+        self,
+        ssid=WIFI_SSID,
+        password=WIFI_PASSWORD,
+        timeout_seconds=WIFI_TIMEOUT_SECONDS,
+    ):
         """Initialize the service with WiFi credentials and timeout."""
 
         self._ssid = ssid
@@ -57,3 +62,9 @@ class WiFiService:
             return None
 
         return self._wlan.ifconfig()[0]
+
+    def get_mac_address(self):
+        """Return the STA interface MAC address as an uppercase string."""
+
+        mac_bytes = self._wlan.config("mac")
+        return ":".join("{:02X}".format(byte) for byte in mac_bytes)

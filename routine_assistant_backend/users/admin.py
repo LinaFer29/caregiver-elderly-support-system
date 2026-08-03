@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Caregiver, Elderly, User
+from .models import Caregiver, Device, Elderly, User
 
 admin.site.register(User)
 
@@ -23,3 +23,17 @@ class ElderlyAdmin(admin.ModelAdmin):
 class CaregiverAdmin(admin.ModelAdmin):
     list_display = ("user", "caregiver_type")
     search_fields = ("user__username", "user__email", "caregiver_type")
+
+
+@admin.register(Device)
+class DeviceAdmin(admin.ModelAdmin):
+    list_display = (
+        "serial_number",
+        "name",
+        "mac_address",
+        "model",
+        "status",
+        "elderly",
+    )
+    search_fields = ("serial_number", "name", "mac_address", "model")
+    list_filter = ("status", "model")

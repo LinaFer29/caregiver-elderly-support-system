@@ -28,3 +28,31 @@ class Elderly(models.Model):
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}".strip() or f"Elderly {self.pk}"
+
+
+class Device(models.Model):
+    STATUS_CHOICES = (
+        ("available", "Available"),
+        ("assigned", "Assigned"),
+        ("inactive", "Inactive"),
+    )
+
+    name = models.CharField(max_length=100)
+    serial_number = models.CharField(max_length=100, unique=True)
+    mac_address = models.CharField(max_length=17, unique=True)
+    model = models.CharField(max_length=100)
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="available",
+    )
+    elderly = models.OneToOneField(
+        Elderly,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="device",
+    )
+
+    def __str__(self):
+        return f"{self.serial_number} - {self.name}"

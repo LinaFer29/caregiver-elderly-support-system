@@ -4,8 +4,13 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-from .serializers import CaregiverSerializer, ElderlySerializer, UserRegisterSerializer
-from .models import Caregiver, Elderly, User
+from .serializers import (
+    CaregiverSerializer,
+    DeviceAssociationSerializer,
+    ElderlySerializer,
+    UserRegisterSerializer,
+)
+from .models import Caregiver, Device, Elderly, User
 from django.db.models import Q
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -100,5 +105,66 @@ class CustomLoginView(APIView):
             },
             status=status.HTTP_200_OK
         )
-    
-        
+
+
+class DeviceAssociationView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = DeviceAssociationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        caregiver = Caregiver.objects.get(user=request.user)
+        elderly = Elderly.objects.filter(
+            id=serializer.validated_data["elderly_id"],
+            caregiver=caregiver,
+        ).first()
+
+        if not elderly:
+            return Response(
+                {"detail": "El adulto mayor no pertenece al cuidador autenticado."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if hasattr(elderly, "device"):
+            return Response(
+                {"detail": "El adulto mayor ya tiene un dispositivo asociado."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        device = Device.objects.filter(
+            serial_number__iexact=serializer.validated_data["serial_number"]
+        ).first()
+
+        if not device:
+            return Response(
+                {"detail": "No existe un dispositivo con el número de serie indicado."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if device.elderly_id is not None:
+            return Response(
+                {"detail": "El dispositivo ya está asociado a otro adulto mayor."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        device.name = serializer.validated_data["name"]
+        device.elderly = elderly
+        device.status = "assigned"
+        device.save(update_fields=["name", "elderly", "status"])
+
+        return Response(
+            {
+                "message": "Dispositivo vinculado correctamente.",
+                "device": {
+                    "id": device.id,
+                    "name": device.name,
+                    "serial_number": device.serial_number,
+                    "mac_address": device.mac_address,
+                    "model": device.model,
+                    "status": device.status,
+                    "elderly_id": elderly.id,
+                },
+            },
+            status=status.HTTP_200_OK,
+        )

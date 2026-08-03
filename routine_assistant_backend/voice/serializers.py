@@ -11,3 +11,19 @@ class VoiceReminderSerializer(serializers.Serializer):
     activity = serializers.CharField()
     message = serializers.CharField()
     scheduled_time = serializers.TimeField()
+
+
+class VoiceSTTRequestSerializer(serializers.Serializer):
+    """Validate the payload received from the voice assistant STT endpoint."""
+
+    audio = serializers.FileField()
+    sample_rate = serializers.IntegerField(required=False, min_value=1)
+
+
+class VoiceSTTResponseSerializer(serializers.Serializer):
+    """Serializer for the STT response returned to the assistant device."""
+
+    transcription = serializers.CharField()
+    intent = serializers.CharField(allow_null=True)
+    response_text = serializers.CharField()
+    audio_file = serializers.CharField(allow_null=True)

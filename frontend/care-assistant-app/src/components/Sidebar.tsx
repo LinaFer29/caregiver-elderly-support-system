@@ -5,6 +5,7 @@ import {
   ListChecks,
   Heart,
   Users,
+  Cpu,
 } from "lucide-react";
 
 import { useSidebar } from "../context/useSidebar";
@@ -14,6 +15,7 @@ const navItems = [
   { title: "Rutinas", path: "/routines", icon: CalendarCheck },
   { title: "Catálogo de Actividades", path: "/activities-catalog", icon: ListChecks },
   { title: "Adultos Mayores", path: "/elderly", icon: Users },
+  { title: "Vincular Dispositivo", path: "/devices/link", icon: Cpu },
 ];
 
 export function Sidebar() {
