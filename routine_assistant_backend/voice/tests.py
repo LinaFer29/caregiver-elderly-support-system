@@ -1,5 +1,6 @@
 import io
 import wave
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import numpy as np
@@ -40,6 +41,9 @@ class ResponseServiceTests(TestCase):
 class AudioProcessingServiceTests(TestCase):
     def setUp(self):
         self.service = AudioProcessingService()
+        self.fixture_path = (
+            Path(__file__).resolve().parent / "tests_fixtures" / "valid_pcm16_realistic.pcm"
+        )
 
     def test_processes_pcm16_wav_into_normalized_float32(self):
         wav_bytes = self._build_wav(
@@ -87,11 +91,25 @@ class AudioProcessingServiceTests(TestCase):
         )
 
     def test_rejects_invalid_pcm16_stream_with_odd_number_of_bytes(self):
-        with self.assertRaisesMessage(Exception, "El audio PCM16 recibido no es válido."):
+        with self.assertRaisesMessage(
+            Exception,
+            "El tamaño del flujo PCM16 no es múltiplo de 2 bytes: 1.",
+        ):
             self.service.process_pcm16_stream(
                 b"\x01",
                 sample_rate=DEFAULT_AUDIO_SAMPLE_RATE,
             )
+
+    def test_processes_realistic_pcm16_fixture_without_validation_error(self):
+        raw_pcm = self.fixture_path.read_bytes()
+
+        waveform = self.service.process_pcm16_stream(
+            raw_pcm,
+            sample_rate=DEFAULT_AUDIO_SAMPLE_RATE,
+        )
+
+        self.assertEqual(waveform.dtype, np.float32)
+        self.assertGreater(len(waveform), 0)
 
     def _build_wav(self, sample_rate, sample_values):
         buffer = io.BytesIO()
@@ -207,6 +225,11 @@ class VoiceAssistantSTTEndpointTests(TestCase):
 
 
 class VoiceAssistantServiceTests(TestCase):
+    def setUp(self):
+        self.fixture_path = (
+            Path(__file__).resolve().parent / "tests_fixtures" / "valid_pcm16_realistic.pcm"
+        )
+
     def test_orchestrates_audio_whisper_and_response_services(self):
         audio_service = Mock()
         whisper_service = Mock()
@@ -273,3 +296,30 @@ class VoiceAssistantServiceTests(TestCase):
         )
         whisper_service.transcribe.assert_called_once()
         response_service.build_response.assert_called_once_with("que sigue")
+
+    def test_realistic_pcm16_fixture_reaches_whisper_without_validation_error(self):
+        raw_pcm = self.fixture_path.read_bytes()
+        whisper_service = Mock()
+        response_service = Mock()
+
+        whisper_service.transcribe.return_value = ""
+        response_service.build_response.return_value = {
+            "transcription": "",
+            "intent": None,
+            "response_text": "No pude identificar la instruccion.",
+            "audio_file": None,
+        }
+
+        service = VoiceAssistantService(
+            whisper_service=whisper_service,
+            response_service=response_service,
+        )
+
+        result = service.process_pcm16_command(
+            raw_pcm,
+            sample_rate=DEFAULT_AUDIO_SAMPLE_RATE,
+        )
+
+        self.assertIsNone(result["intent"])
+        whisper_service.transcribe.assert_called_once()
+        response_service.build_response.assert_called_once_with("")

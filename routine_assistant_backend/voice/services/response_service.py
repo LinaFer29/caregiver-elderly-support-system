@@ -17,6 +17,7 @@ class ResponseService:
                 r"\bya\s+(realice|realic[eé]|hice|termine|termin[eé]|complete|complet[eé])\s+la\s+actividad\b",
                 r"\bactividad\s+(realizada|completada|terminada)\b",
                 r"\bya\s+esta\s+lista\s+la\s+actividad\b",
+                r"\btermine\b"
             ),
         },
         "next_activity": {
