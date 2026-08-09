@@ -1,17 +1,28 @@
 import io
 import wave
+from datetime import timedelta
 from pathlib import Path
 from unittest.mock import Mock, patch
 
 import numpy as np
+from django.contrib.auth import get_user_model
+from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import TestCase, override_settings
+from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 from rest_framework.test import APIClient
 
-from voice.constants import DEFAULT_AUDIO_SAMPLE_RATE
+from activities.models import Activity, Category
+from routines.models import Assignment
+from users.models import Caregiver, Device, Elderly
+from voice.constants import (
+    DEFAULT_AUDIO_SAMPLE_RATE,
+    VOICE_TTS_OUTPUT_SAMPLE_RATE,
+)
 from voice.services.audio_service import AudioProcessingService
 from voice.services.response_service import ResponseService
+from voice.services.tts_service import TTSService
 from voice.services.voice_assistant_service import VoiceAssistantService
 
 
@@ -29,7 +40,10 @@ class ResponseServiceTests(TestCase):
         response = self.service.build_response("Cual es la siguiente actividad")
 
         self.assertEqual(response["intent"], "next_activity")
-        self.assertEqual(response["response_text"], "La siguiente actividad es tomar agua.")
+        self.assertEqual(
+            response["response_text"],
+            "La siguiente actividad es tomar agua.",
+        )
 
     def test_returns_fallback_when_intent_is_unknown(self):
         response = self.service.build_response("Buenos dias")
@@ -59,7 +73,12 @@ class AudioProcessingServiceTests(TestCase):
         waveform = self.service.process(uploaded_file)
 
         self.assertEqual(waveform.dtype, np.float32)
-        self.assertTrue(np.allclose(waveform[:3], np.array([0.0, 0.5, -0.5], dtype=np.float32)))
+        self.assertTrue(
+            np.allclose(
+                waveform[:3],
+                np.array([0.0, 0.5, -0.5], dtype=np.float32),
+            )
+        )
 
     def test_resamples_raw_pcm_when_sample_rate_differs_from_target(self):
         raw_pcm = np.array([0, 1000, -1000, 500], dtype=np.int16).tobytes()
@@ -205,7 +224,7 @@ class VoiceAssistantSTTEndpointTests(TestCase):
     def test_returns_400_for_empty_octet_stream(self, voice_assistant_service_cls):
         voice_assistant_service = Mock()
         voice_assistant_service.process_pcm16_command.side_effect = ValidationError(
-            "El flujo PCM16 recibido está vacío."
+            "El flujo PCM16 está vacío."
         )
         voice_assistant_service_cls.return_value = voice_assistant_service
 
@@ -216,7 +235,7 @@ class VoiceAssistantSTTEndpointTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json()["detail"], ["El flujo PCM16 recibido está vacío."])
+        self.assertEqual(response.json()["detail"], ["El flujo PCM16 está vacío."])
 
     def test_rejects_path_traversal_attempts_in_audio_download(self):
         response = self.client.get("/api/voice/assistant/audio/../secret.wav/")
@@ -224,11 +243,65 @@ class VoiceAssistantSTTEndpointTests(TestCase):
         self.assertEqual(response.status_code, 404)
 
 
+@override_settings(MEDIA_ROOT=Path(__file__).resolve().parent / "test_media")
+class TTSServiceTests(TestCase):
+    def setUp(self):
+        self.service = TTSService()
+        self.media_root = Path(settings.MEDIA_ROOT)
+        self.media_root.mkdir(parents=True, exist_ok=True)
+
+    def tearDown(self):
+        if self.media_root.exists():
+            for path in sorted(self.media_root.rglob("*"), reverse=True):
+                if path.is_file():
+                    path.unlink()
+                elif path.is_dir():
+                    path.rmdir()
+
+    def test_converts_generated_audio_to_wav_pcm_mono_8000hz(self):
+        with patch.object(
+            self.service,
+            "_synthesize_to_source_file",
+            side_effect=self._write_source_wav,
+        ):
+            result = self.service.generate_audio(
+                "Hola, este es un recordatorio de prueba.",
+                identifier="simple",
+            )
+
+        self.assertTrue(result["audio_path"].exists())
+
+        with wave.open(str(result["audio_path"]), "rb") as wav_file:
+            self.assertEqual(wav_file.getframerate(), VOICE_TTS_OUTPUT_SAMPLE_RATE)
+            self.assertEqual(wav_file.getnchannels(), 1)
+            self.assertEqual(wav_file.getsampwidth(), 2)
+            self.assertEqual(wav_file.getcomptype(), "NONE")
+
+    def _write_source_wav(self, _text, output_path):
+        sample_values = np.array([0, 2000, -2000, 1000] * 4000, dtype=np.int16)
+        with wave.open(str(output_path), "wb") as wav_file:
+            wav_file.setnchannels(1)
+            wav_file.setsampwidth(2)
+            wav_file.setframerate(24000)
+            wav_file.writeframes(sample_values.tobytes())
+
+
+@override_settings(MEDIA_ROOT=Path(__file__).resolve().parent / "test_media")
 class VoiceAssistantServiceTests(TestCase):
     def setUp(self):
         self.fixture_path = (
             Path(__file__).resolve().parent / "tests_fixtures" / "valid_pcm16_realistic.pcm"
         )
+        self.media_root = Path(settings.MEDIA_ROOT)
+        self.media_root.mkdir(parents=True, exist_ok=True)
+
+    def tearDown(self):
+        if self.media_root.exists():
+            for path in sorted(self.media_root.rglob("*"), reverse=True):
+                if path.is_file():
+                    path.unlink()
+                elif path.is_dir():
+                    path.rmdir()
 
     def test_orchestrates_audio_whisper_and_response_services(self):
         audio_service = Mock()
@@ -323,3 +396,106 @@ class VoiceAssistantServiceTests(TestCase):
         self.assertIsNone(result["intent"])
         whisper_service.transcribe.assert_called_once()
         response_service.build_response.assert_called_once_with("")
+
+    @patch("voice.services.voice_assistant_service.TTSService.generate_audio")
+    def test_reuses_real_reminder_flow_with_additional_instructions_for_tts(
+        self,
+        generate_audio_mock,
+    ):
+        assignment = self._create_due_assignment(
+            title="Tomar medicación",
+            description="Tomar la medicina asignada.",
+            additional_instructions="Tomar Losartán 50mg después del desayuno.",
+            mac_address="AA:BB:CC:DD:EE:01",
+        )
+        generate_audio_mock.return_value = {
+            "audio_file": "tts_assignment_1_demo.wav",
+            "audio_path": self.media_root / "assistant_audio" / "tts_assignment_1_demo.wav",
+        }
+
+        service = VoiceAssistantService()
+        reminders = service.get_due_reminders("AA:BB:CC:DD:EE:01")
+
+        self.assertEqual(len(reminders), 1)
+        self.assertEqual(reminders[0]["assignment_id"], assignment.id)
+        self.assertEqual(reminders[0]["activity"], "Tomar medicación")
+        self.assertEqual(
+            reminders[0]["message"],
+            "Es hora de Tomar medicación. Tomar Losartán 50mg después del desayuno.",
+        )
+        self.assertEqual(reminders[0]["audio_file"], "tts_assignment_1_demo.wav")
+        spoken_text = generate_audio_mock.call_args.kwargs["text"]
+        self.assertIn("Hola, es momento de realizar una actividad.", spoken_text)
+        self.assertIn("Es hora de Tomar medicación.", spoken_text)
+        self.assertIn("Tomar Losartán 50mg después del desayuno.", spoken_text)
+
+    @patch("voice.services.voice_assistant_service.TTSService.generate_audio")
+    def test_reuses_real_reminder_flow_without_additional_instructions_for_tts(
+        self,
+        generate_audio_mock,
+    ):
+        assignment = self._create_due_assignment(
+            title="Tomar agua",
+            description="Tomar un vaso de agua.",
+            additional_instructions="",
+            mac_address="AA:BB:CC:DD:EE:02",
+        )
+        generate_audio_mock.return_value = {
+            "audio_file": "tts_assignment_2_demo.wav",
+            "audio_path": self.media_root / "assistant_audio" / "tts_assignment_2_demo.wav",
+        }
+
+        service = VoiceAssistantService()
+        reminders = service.get_due_reminders("AA:BB:CC:DD:EE:02")
+
+        self.assertEqual(len(reminders), 1)
+        self.assertEqual(reminders[0]["assignment_id"], assignment.id)
+        self.assertEqual(
+            reminders[0]["message"],
+            "Es hora de Tomar agua. Tomar un vaso de agua.",
+        )
+        spoken_text = generate_audio_mock.call_args.kwargs["text"]
+        self.assertIn("Tomar un vaso de agua.", spoken_text)
+        self.assertEqual(reminders[0]["audio_file"], "tts_assignment_2_demo.wav")
+
+    def _create_due_assignment(self, title, description, additional_instructions, mac_address):
+        user_model = get_user_model()
+        user = user_model.objects.create_user(
+            username=f"user_{mac_address.replace(':', '')}",
+            password="test1234",
+            role="caregiver",
+        )
+        caregiver = Caregiver.objects.create(user=user, caregiver_type="formal")
+        elderly = Elderly.objects.create(
+            first_name="Ana",
+            last_name="Pérez",
+            age=78,
+            caregiver=caregiver,
+            relationship_to_caregiver="Hija",
+            dependency_level="media",
+            underlying_conditions="Hipertensión",
+        )
+        Device.objects.create(
+            name="ESP32 Voice",
+            serial_number=f"SER-{mac_address.replace(':', '')}",
+            mac_address=mac_address,
+            model="ESP32",
+            status="assigned",
+            elderly=elderly,
+        )
+        category = Category.objects.create(name=f"Categoria {mac_address}")
+        activity = Activity.objects.create(
+            title=title,
+            description=description,
+            category=category,
+        )
+
+        now = timezone.localtime()
+        return Assignment.objects.create(
+            elderly=elderly,
+            activity=activity,
+            date=now.date(),
+            notification_time=(now - timedelta(minutes=1)).time(),
+            additional_instructions=additional_instructions,
+            status="pending",
+        )

@@ -73,27 +73,6 @@ class VoiceSTTView(APIView):
         response_serializer = VoiceSTTResponseSerializer(result)
         return Response(response_serializer.data, status=status.HTTP_200_OK)
 
-
-# class VoiceAudioDownloadView(APIView):
-#     """Serve assistant response audio files from the configured media folder."""
-
-#     response_service = ResponseService()
-
-#     def get(self, request, file_name):
-#         if "/" in file_name or "\\" in file_name:
-#             raise Http404("Archivo no encontrado.")
-
-#         file_path = self.response_service.get_audio_path(file_name).resolve()
-#         audio_root = (settings.MEDIA_ROOT / "assistant_audio").resolve()
-
-#         if audio_root not in file_path.parents:
-#             raise Http404("Archivo no encontrado.")
-
-#         if not file_path.is_file():
-#             raise Http404("Archivo no encontrado.")
-
-#         return FileResponse(file_path.open("rb"), content_type="audio/wav")
-
 class VoiceAudioDownloadView(APIView):
     """Serve assistant response audio files from the configured media folder."""
 

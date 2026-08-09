@@ -11,6 +11,7 @@ class VoiceReminderSerializer(serializers.Serializer):
     activity = serializers.CharField()
     message = serializers.CharField()
     scheduled_time = serializers.TimeField()
+    audio_file = serializers.CharField(allow_null=True)
 
 
 class VoiceSTTRequestSerializer(serializers.Serializer):

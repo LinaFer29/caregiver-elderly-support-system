@@ -1,8 +1,11 @@
 """Services related to the voice assistant orchestration workflow."""
 
+import re
+
 from .audio_service import AudioProcessingService
 from .reminder_service import ReminderService
 from .response_service import ResponseService
+from .tts_service import TTSService
 from .whisper_service import WhisperService
 
 
@@ -20,6 +23,7 @@ class VoiceAssistantService:
         audio_service=None,
         whisper_service=None,
         response_service=None,
+        tts_service=None,
     ):
         """Initialize the service with its reminder dependency."""
 
@@ -27,6 +31,7 @@ class VoiceAssistantService:
         self.audio_service = audio_service or AudioProcessingService()
         self.whisper_service = whisper_service or WhisperService()
         self.response_service = response_service or ResponseService()
+        self.tts_service = tts_service or TTSService()
 
     def get_due_reminders(self, mac_address):
         """Build the reminder payload consumed by the voice assistant.
@@ -40,17 +45,15 @@ class VoiceAssistantService:
         assignments = self.reminder_service.get_due_assignments(mac_address)
 
         for assignment in assignments:
-            instructions = (assignment.additional_instructions or "").strip()
-            if instructions:
-                message = (
-                    f"Es hora de {assignment.activity.title}. "
-                    f"{instructions}"
-                )
-            else:
-                message = (
-                    f"Es hora de {assignment.activity.title}. "
-                    f"{assignment.activity.description}"
-                )
+            message = self._build_reminder_message(assignment)
+            tts_text = self._build_tts_message(
+                activity=assignment.activity.title,
+                message=message,
+            )
+            audio_reference = self.tts_service.generate_audio(
+                text=tts_text,
+                identifier=str(assignment.id),
+            )
 
             reminders.append(
                 {
@@ -59,6 +62,7 @@ class VoiceAssistantService:
                     "activity": assignment.activity.title,
                     "message": message,
                     "scheduled_time": assignment.notification_time,
+                    "audio_file": audio_reference["audio_file"],
                 }
             )
 
@@ -80,3 +84,30 @@ class VoiceAssistantService:
         )
         transcription = self.whisper_service.transcribe(waveform)
         return self.response_service.build_response(transcription)
+
+    def _build_reminder_message(self, assignment):
+        """Build the reminder message from existing assignment data."""
+
+        instructions = (assignment.additional_instructions or "").strip()
+        if instructions:
+            return f"Es hora de {assignment.activity.title}. {instructions}"
+
+        return (
+            f"Es hora de {assignment.activity.title}. "
+            f"{assignment.activity.description}"
+        )
+
+    def _build_tts_message(self, activity, message):
+        """Create a brief spoken message from the existing reminder payload."""
+
+        cleaned_activity = " ".join((activity or "").split())
+        cleaned_message = " ".join((message or "").split())
+
+        if not cleaned_message:
+            cleaned_message = f"Es hora de {cleaned_activity}."
+
+        spoken_message = (
+            "Hola, es momento de realizar una actividad. "
+            f"{cleaned_message}"
+        )
+        return re.sub(r"\s+", " ", spoken_message).strip()
