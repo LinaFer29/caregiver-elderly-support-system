@@ -1,5 +1,7 @@
 """Services related to assignment reminders and status updates."""
 
+from datetime import timedelta
+
 from django.utils import timezone
 
 from routines.models import Assignment
@@ -29,6 +31,22 @@ class ReminderService:
 
         return device.elderly_id
 
+    def _base_pending_assignments_queryset(self, elderly_id=None, target_date=None):
+        """Return the shared base queryset for pending assignments."""
+
+        queryset = Assignment.objects.filter(status="pending").select_related(
+            "activity",
+            "elderly",
+        )
+
+        if elderly_id is not None:
+            queryset = queryset.filter(elderly_id=elderly_id)
+
+        if target_date is not None:
+            queryset = queryset.filter(date=target_date)
+
+        return queryset
+
     def get_due_assignments(self, mac_address):
         """Return pending assignments due for processing at the current time.
 
@@ -46,13 +64,11 @@ class ReminderService:
             return Assignment.objects.none()
 
         return (
-            Assignment.objects.filter(
+            self._base_pending_assignments_queryset(
                 elderly_id=elderly_id,
-                status="pending",
-                date=current_date,
-                notification_time__lte=current_time,
+                target_date=current_date,
             )
-            .select_related("activity", "elderly")
+            .filter(notification_time__lte=current_time)
             .order_by("notification_time")
         )
 
@@ -72,15 +88,39 @@ class ReminderService:
             return None
 
         return (
-            Assignment.objects.filter(
+            self._base_pending_assignments_queryset(
                 elderly_id=elderly_id,
-                status="pending",
-                date=current_date,
-                notification_time__gt=current_time,
+                target_date=current_date,
             )
+            .filter(notification_time__gt=current_time)
             .order_by("notification_time")
             .first()
         )
+
+    def get_assignments_due_for_dispatch(self, reference_datetime=None):
+        """Return pending assignments scheduled within the current minute."""
+
+        current_datetime = timezone.localtime(reference_datetime or timezone.now())
+        current_date = current_datetime.date()
+        minute_start = current_datetime.replace(second=0, microsecond=0)
+        minute_end = minute_start + timedelta(minutes=1)
+
+        return (
+            self._base_pending_assignments_queryset(target_date=current_date)
+            .filter(
+                notification_time__gte=minute_start.time(),
+                notification_time__lt=minute_end.time(),
+            )
+            .order_by("notification_time")
+        )
+
+    def get_device_for_elderly(self, elderly):
+        """Return the device assigned to an elderly profile, if any."""
+
+        if elderly is None:
+            return None
+
+        return Device.objects.filter(elderly=elderly).first()
 
     def mark_completed(self):
         """Mark an assignment as completed.

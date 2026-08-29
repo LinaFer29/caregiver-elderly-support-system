@@ -45,28 +45,36 @@ class VoiceAssistantService:
         assignments = self.reminder_service.get_due_assignments(mac_address)
 
         for assignment in assignments:
-            message = self._build_reminder_message(assignment)
-            tts_text = self._build_tts_message(
-                activity=assignment.activity.title,
-                message=message,
-            )
-            audio_reference = self.tts_service.generate_audio(
-                text=tts_text,
-                identifier=str(assignment.id),
-            )
-
-            reminders.append(
-                {
-                    "assignment_id": assignment.id,
-                    "elderly_id": assignment.elderly_id,
-                    "activity": assignment.activity.title,
-                    "message": message,
-                    "scheduled_time": assignment.notification_time,
-                    "audio_file": audio_reference["audio_file"],
-                }
-            )
+            reminders.append(self.build_due_reminder_payload(assignment))
 
         return reminders
+
+    def build_due_reminder_payload(self, assignment):
+        """Build the canonical reminder payload for one assignment.
+
+        This is the shared source of truth used both by the HTTP reminders
+        endpoint and by the MQTT publication flow, so audio generation and the
+        resulting `audio_file` keep a single contract across transports.
+        """
+
+        message = self._build_reminder_message(assignment)
+        tts_text = self._build_tts_message(
+            activity=assignment.activity.title,
+            message=message,
+        )
+        audio_reference = self.tts_service.generate_audio(
+            text=tts_text,
+            identifier=str(assignment.id),
+        )
+
+        return {
+            "assignment_id": assignment.id,
+            "elderly_id": assignment.elderly_id,
+            "activity": assignment.activity.title,
+            "message": message,
+            "scheduled_time": assignment.notification_time,
+            "audio_file": audio_reference["audio_file"],
+        }
 
     def process_speech_command(self, audio_file, sample_rate=None):
         """Process an uploaded audio file and resolve the assistant response."""

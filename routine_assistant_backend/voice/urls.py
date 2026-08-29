@@ -2,7 +2,11 @@
 
 from django.urls import path
 
-from .views import VoiceAudioDownloadView, VoiceReminderListView, VoiceSTTView
+from .views import (
+    VoiceAudioDownloadView,
+    VoiceReminderListView,
+    VoiceSTTView,
+)
 
 
 urlpatterns = [

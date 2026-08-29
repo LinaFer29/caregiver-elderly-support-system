@@ -21,6 +21,7 @@ class AudioService:
         self._pin_audio = pin_audio
         self._max_dac_rate = max_dac_rate
         self._volumen_porcentaje = volumen_porcentaje
+        self._dac = None
 
     def read_wav_info(self, path):
         """Read WAV container metadata without loading the full file in RAM."""
@@ -184,6 +185,41 @@ class AudioService:
 
         return table
 
+    def _get_or_initialize_dac(self):
+        """Return a reusable DAC instance, creating it only once when possible."""
+
+        if self._dac is not None:
+            try:
+                self._dac.write(128)
+                return self._dac
+            except Exception as exc:
+                print("El DAC existente no respondió, se recreará:", exc)
+                self._release_dac()
+
+        last_error = None
+
+        for attempt in range(1, 3):
+            try:
+                print("Inicializando DAC intento", attempt)
+                self._dac = DAC(Pin(self._pin_audio))
+                sleep_ms(20)
+                self._dac.write(128)
+                sleep_ms(20)
+                return self._dac
+            except Exception as exc:
+                last_error = exc
+                print("Error al inicializar DAC intento {}: {}".format(attempt, exc))
+                self._release_dac()
+                gc.collect()
+                sleep_ms(200)
+
+        raise RuntimeError(
+            "No fue posible inicializar el DAC GPIO{}: {}".format(
+                self._pin_audio,
+                last_error,
+            )
+        )
+
     def _play_pcm_u8_8k(self, path, info):
         """Optimized path for WAV PCM unsigned 8-bit mono 8000 Hz."""
 
@@ -196,8 +232,7 @@ class AudioService:
         period_us = 125
         volume_table = self._create_volume_table()
         audio_buffer = bytearray(1024)
-        dac = DAC(Pin(self._pin_audio))
-        dac.write(128)
+        dac = self._get_or_initialize_dac()
 
         played_samples = 0
         next_tick = ticks_us()
@@ -267,8 +302,7 @@ class AudioService:
         print("  Frecuencia DAC:", output_rate, "Hz")
         print("  Volumen digital:", self._volumen_porcentaje, "%")
 
-        dac = DAC(Pin(self._pin_audio))
-        dac.write(128)
+        dac = self._get_or_initialize_dac()
 
         audio_buffer = bytearray(2048)
         volume_table = self._create_volume_table()
@@ -346,7 +380,7 @@ class AudioService:
             )
 
     def _release_audio_resources(self, dac, audio_buffer, volume_table):
-        """Reset DAC and free buffers even when playback fails."""
+        """Reset DAC output and free buffers even when playback fails."""
 
         gc.enable()
 
@@ -357,11 +391,27 @@ class AudioService:
 
         sleep_ms(100)
 
+        del audio_buffer
+        del volume_table
+        gc.collect()
+
+    def _release_dac(self):
+        """Fully release the DAC only when it becomes unusable."""
+
+        if self._dac is None:
+            return
+
         try:
-            dac.deinit()
+            self._dac.write(128)
+        except Exception:
+            pass
+
+        sleep_ms(50)
+
+        try:
+            self._dac.deinit()
         except (AttributeError, OSError):
             pass
 
-        del audio_buffer
-        del volume_table
+        self._dac = None
         gc.collect()

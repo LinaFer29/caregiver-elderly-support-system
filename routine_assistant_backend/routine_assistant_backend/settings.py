@@ -10,8 +10,10 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
+import os
 from datetime import timedelta
 from pathlib import Path
+from celery.schedules import crontab
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -26,14 +28,24 @@ SECRET_KEY = 'django-insecure-2%nw5m@ejsymkc!uh!v=apyryr7d&p+sru32ta(ruijjm*s*ck
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = [
+DEFAULT_ALLOWED_HOSTS = [
     'localhost',
     '0.0.0.0',
     '127.0.0.1',
     '192.168.1.56',
     '192.168.1.51',
     '192.168.11.195',
-    ]
+    '192.168.11.113',
+    '192.168.1.57',
+]
+
+extra_allowed_hosts = [
+    host.strip()
+    for host in os.getenv("DJANGO_ALLOWED_HOSTS", "").split(",")
+    if host.strip()
+]
+
+ALLOWED_HOSTS = DEFAULT_ALLOWED_HOSTS + extra_allowed_hosts
 
 
 # Application definition
@@ -156,3 +168,19 @@ SIMPLE_JWT = {
 }
 
 AUTH_USER_MODEL = 'users.User'
+
+MQTT_BROKER = os.getenv("MQTT_BROKER", "192.168.1.57")
+MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
+MQTT_USER = os.getenv("MQTT_USER") or None
+MQTT_PASSWORD = os.getenv("MQTT_PASSWORD") or None
+MQTT_KEEPALIVE = int(os.getenv("MQTT_KEEPALIVE", "60"))
+
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://127.0.0.1:6379/0")
+CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", CELERY_BROKER_URL)
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_BEAT_SCHEDULE = {
+    "dispatch-due-assignments-every-minute": {
+        "task": "voice.tasks.dispatch_due_assignments",
+        "schedule": crontab(),
+    },
+}

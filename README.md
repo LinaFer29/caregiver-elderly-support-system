@@ -95,13 +95,22 @@ Desde la raíz del proyecto:
 cd routine_assistant_backend
 python3 -m venv venv
 source venv/bin/activate
-pip install django djangorestframework djangorestframework-simplejwt django-cors-headers coreapi
+pip install django djangorestframework djangorestframework-simplejwt django-cors-headers coreapi paho-mqtt "celery[redis]"
 python manage.py migrate
 python manage.py runserver
 ```
 
 Backend por defecto en:
 - `http://localhost:8000`
+
+Para automatizar el envío de actividades pendientes por MQTT:
+
+```bash
+redis-server
+cd routine_assistant_backend
+celery -A routine_assistant_backend worker --loglevel=info
+celery -A routine_assistant_backend beat --loglevel=info
+```
 
 ### 2) Frontend
 

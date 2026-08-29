@@ -21,7 +21,10 @@ from voice.constants import (
     VOICE_TTS_OUTPUT_SAMPLE_RATE,
 )
 from voice.services.audio_service import AudioProcessingService
+from voice.services.mqtt_service import VoiceMQTTPublisherService
+from voice.services.reminder_service import ReminderService
 from voice.services.response_service import ResponseService
+from voice.tasks import dispatch_due_assignments
 from voice.services.tts_service import TTSService
 from voice.services.voice_assistant_service import VoiceAssistantService
 
@@ -241,6 +244,247 @@ class VoiceAssistantSTTEndpointTests(TestCase):
         response = self.client.get("/api/voice/assistant/audio/../secret.wav/")
 
         self.assertEqual(response.status_code, 404)
+
+
+class VoiceMQTTPublisherServiceTests(TestCase):
+    def setUp(self):
+        self.service = VoiceMQTTPublisherService()
+
+    def test_builds_device_id_from_mac_address(self):
+        self.assertEqual(
+            self.service.build_device_id("B4:8A:0A:57:7C:E8"),
+            "b48a0a577ce8",
+        )
+
+    def test_builds_expected_topic(self):
+        topic = self.service.build_topic("b48a0a577ce8")
+
+        self.assertEqual(topic, "device/b48a0a577ce8/audio")
+
+    def test_builds_activity_payload(self):
+        activity = Activity(id=1, title="Tomar medicamento", description="Tomar el medicamento.")
+
+        payload = self.service.build_activity_payload(activity)
+
+        self.assertEqual(
+            payload,
+            {
+                "type": "activity",
+                "activity_id": 1,
+                "title": "Tomar medicamento",
+                "description": "Tomar el medicamento.",
+            },
+        )
+
+    def test_builds_reminder_payload_from_existing_http_contract(self):
+        payload = self.service.build_reminder_payload(
+            {
+                "assignment_id": 9,
+                "elderly_id": 3,
+                "activity": "Tomar medicamento",
+                "message": "Es hora de Tomar medicamento. Tomar el medicamento de la mañana.",
+                "scheduled_time": timezone.datetime(
+                    2026,
+                    8,
+                    9,
+                    8,
+                    0,
+                    0,
+                ).time(),
+                "audio_file": "tts_assignment_9_abcd1234.wav",
+            }
+        )
+
+        self.assertEqual(
+            payload,
+            {
+                "type": "activity",
+                "assignment_id": 9,
+                "elderly_id": 3,
+                "activity": "Tomar medicamento",
+                "message": "Es hora de Tomar medicamento. Tomar el medicamento de la mañana.",
+                "scheduled_time": "08:00:00",
+                "audio_file": "tts_assignment_9_abcd1234.wav",
+            },
+        )
+
+
+class ReminderDispatchServiceTests(TestCase):
+    def setUp(self):
+        self.service = ReminderService()
+        self.user_model = get_user_model()
+        self.category = Category.objects.create(name="Categoria recordatorios")
+        self.sequence = 0
+
+    def test_detects_pending_assignment_scheduled_in_current_minute(self):
+        reference_datetime = timezone.localtime().replace(second=30, microsecond=0)
+        assignment = self._create_assignment(
+            date=reference_datetime.date(),
+            notification_time=reference_datetime.time().replace(second=0, microsecond=0),
+            status="pending",
+            mac_address="B4:8A:0A:57:7C:E8",
+        )
+
+        assignments = list(
+            self.service.get_assignments_due_for_dispatch(
+                reference_datetime=reference_datetime,
+            )
+        )
+
+        self.assertEqual(assignments, [assignment])
+
+    def test_ignores_assignments_from_other_dates(self):
+        reference_datetime = timezone.localtime().replace(second=15, microsecond=0)
+        self._create_assignment(
+            date=reference_datetime.date() + timedelta(days=1),
+            notification_time=reference_datetime.time().replace(second=0, microsecond=0),
+            status="pending",
+            mac_address="AA:BB:CC:DD:EE:10",
+        )
+
+        assignments = list(
+            self.service.get_assignments_due_for_dispatch(
+                reference_datetime=reference_datetime,
+            )
+        )
+
+        self.assertEqual(assignments, [])
+
+    def test_ignores_assignments_with_non_pending_status(self):
+        reference_datetime = timezone.localtime().replace(second=45, microsecond=0)
+        self._create_assignment(
+            date=reference_datetime.date(),
+            notification_time=reference_datetime.time().replace(second=0, microsecond=0),
+            status="completed",
+            mac_address="AA:BB:CC:DD:EE:11",
+        )
+
+        assignments = list(
+            self.service.get_assignments_due_for_dispatch(
+                reference_datetime=reference_datetime,
+            )
+        )
+
+        self.assertEqual(assignments, [])
+
+    def test_resolves_device_from_assignment_elderly_relationship(self):
+        assignment = self._create_assignment(
+            date=timezone.localdate(),
+            notification_time=timezone.localtime().time().replace(second=0, microsecond=0),
+            status="pending",
+            mac_address="AA:BB:CC:DD:EE:12",
+        )
+
+        device = self.service.get_device_for_elderly(assignment.elderly)
+
+        self.assertIsNotNone(device)
+        self.assertEqual(device.elderly_id, assignment.elderly_id)
+        self.assertEqual(device.mac_address, "AA:BB:CC:DD:EE:12")
+
+    @patch("voice.tasks.VoiceAssistantService.build_due_reminder_payload")
+    @patch("voice.tasks.VoiceMQTTPublisherService")
+    def test_dispatch_task_publishes_due_assignment_using_device_mac(
+        self,
+        mqtt_service_cls,
+        build_due_reminder_payload_mock,
+    ):
+        reference_datetime = timezone.localtime().replace(second=0, microsecond=0)
+        assignment = self._create_assignment(
+            date=reference_datetime.date(),
+            notification_time=reference_datetime.time(),
+            status="pending",
+            mac_address="B4:8A:0A:57:7C:E8",
+        )
+        mqtt_service = mqtt_service_cls.return_value
+        build_due_reminder_payload_mock.return_value = {
+            "assignment_id": assignment.id,
+            "elderly_id": assignment.elderly_id,
+            "activity": assignment.activity.title,
+            "message": "Es hora de la actividad.",
+            "scheduled_time": assignment.notification_time,
+            "audio_file": "tts_assignment_demo.wav",
+        }
+
+        published_count = dispatch_due_assignments()
+
+        self.assertEqual(published_count, 1)
+        build_due_reminder_payload_mock.assert_called_once_with(assignment)
+        mqtt_service.publish_reminder.assert_called_once_with(
+            "B4:8A:0A:57:7C:E8",
+            {
+                "assignment_id": assignment.id,
+                "elderly_id": assignment.elderly_id,
+                "activity": assignment.activity.title,
+                "message": "Es hora de la actividad.",
+                "scheduled_time": assignment.notification_time,
+                "audio_file": "tts_assignment_demo.wav",
+            },
+        )
+        assignment.refresh_from_db()
+        self.assertEqual(assignment.status, "pending")
+
+    @patch("voice.tasks.VoiceMQTTPublisherService")
+    def test_dispatch_task_skips_due_assignment_without_device(self, mqtt_service_cls):
+        reference_datetime = timezone.localtime().replace(second=0, microsecond=0)
+        self._create_assignment(
+            date=reference_datetime.date(),
+            notification_time=reference_datetime.time(),
+            status="pending",
+            mac_address=None,
+            create_device=False,
+        )
+
+        published_count = dispatch_due_assignments()
+
+        self.assertEqual(published_count, 0)
+        mqtt_service_cls.return_value.publish_reminder.assert_not_called()
+
+    def _create_assignment(
+        self,
+        date,
+        notification_time,
+        status,
+        mac_address,
+        create_device=True,
+    ):
+        self.sequence += 1
+        user = self.user_model.objects.create_user(
+            username=f"dispatch_user_{self.sequence}",
+            password="test1234",
+            role="caregiver",
+        )
+        caregiver = Caregiver.objects.create(user=user, caregiver_type="formal")
+        elderly = Elderly.objects.create(
+            first_name=f"Adulto{self.sequence}",
+            last_name="Mayor",
+            age=80,
+            caregiver=caregiver,
+            relationship_to_caregiver="Hija",
+            dependency_level="media",
+            underlying_conditions="Hipertension",
+        )
+        if create_device and mac_address:
+            Device.objects.create(
+                name=f"ESP32 {self.sequence}",
+                serial_number=f"SER-DISPATCH-{self.sequence}",
+                mac_address=mac_address,
+                model="ESP32",
+                status="assigned",
+                elderly=elderly,
+            )
+        activity = Activity.objects.create(
+            title=f"Actividad {self.sequence}",
+            description=f"Descripcion {self.sequence}",
+            category=self.category,
+        )
+        return Assignment.objects.create(
+            elderly=elderly,
+            activity=activity,
+            date=date,
+            notification_time=notification_time,
+            additional_instructions="",
+            status=status,
+        )
 
 
 @override_settings(MEDIA_ROOT=Path(__file__).resolve().parent / "test_media")
