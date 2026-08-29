@@ -6,6 +6,7 @@ import time
 from models.reminder import Reminder
 from services.audio_service import AudioService
 from services.http_service import HttpService
+from services.microphone_service import MicrophoneService
 
 from config import (
     MQTT_BROKER,
@@ -39,6 +40,7 @@ class MQTTService:
         topic_suffix=MQTT_TOPIC_SUFFIX,
         http_service=None,
         audio_service=None,
+        microphone_service=None,
     ):
         self._broker = broker
         self._port = port
@@ -50,6 +52,7 @@ class MQTTService:
         self._topic_suffix = topic_suffix
         self._http_service = http_service or HttpService()
         self._audio_service = audio_service or AudioService()
+        self._microphone_service = microphone_service or MicrophoneService()
         self._client = None
         self._topic = None
         self._mac_address = None
@@ -182,6 +185,35 @@ class MQTTService:
             print("Reproducción terminada.")
         except Exception as exc:
             print("Error durante la reproducción del audio:", exc)
+            return
+
+        try:
+            self._audio_service.release_output()
+        except Exception as exc:
+            print("No fue posible liberar el DAC antes de grabar:", exc)
+            return
+
+        if not reminder.assignment_id:
+            print("Error: el mensaje MQTT no contiene assignment_id.")
+            return
+
+        response_result = self._http_service.submit_assignment_response_stream(
+            mac_address=self._mac_address,
+            assignment_id=reminder.assignment_id,
+            microphone_service=self._microphone_service,
+        )
+
+        if response_result is None:
+            print("No fue posible procesar la respuesta hablada.")
+            return
+
+        print("")
+        print("Resultado de la respuesta:")
+        print("Assignment:", response_result.get("assignment_id"))
+        print("Transcripción:", response_result.get("transcription"))
+        print("Resultado:", response_result.get("result"))
+        print("Estado final:", response_result.get("assignment_status"))
+        print("Actualizada:", response_result.get("assignment_updated"))
 
     def _decode_bytes(self, value):
         """Decode MQTT bytes to a printable string."""

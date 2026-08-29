@@ -1,5 +1,6 @@
 """HTTP communication service for the ESP32 MicroPython application."""
 
+import json
 import os
 import socket
 from time import sleep_ms
@@ -14,7 +15,10 @@ from config import (
     HTTP_AUDIO_READ_TIMEOUT_SECONDS,
     HTTP_CONNECT_TIMEOUT_SECONDS,
     HTTP_SEND_TIMEOUT_SECONDS,
+    HTTP_STT_RESPONSE_MAX_BYTES,
+    HTTP_STT_TIMEOUT_SECONDS,
     REMINDERS_ENDPOINT,
+    STT_ENDPOINT,
     TEMP_AUDIO_DOWNLOAD_PATH,
 )
 from models.reminder import Reminder
@@ -40,6 +44,10 @@ class HttpService:
             endpoint = "/" + endpoint
 
         return "http://{}:{}{}".format(self._host, self._port, endpoint)
+
+    def _encode_query_value(self, value):
+        text = str(value or "")
+        return text.replace(":", "%3A").replace(" ", "%20")
 
     def _set_socket_timeout(self, client, seconds):
         try:
@@ -361,6 +369,90 @@ class HttpService:
             return None
 
         return reminders
+
+    def submit_assignment_response_stream(
+        self,
+        mac_address,
+        assignment_id,
+        microphone_service,
+    ):
+        """Capture and submit a spoken response as PCM16 to `/assistant/stt/`."""
+
+        if not mac_address:
+            print("Error: mac_address es obligatorio para enviar la respuesta.")
+            return None
+
+        if not assignment_id:
+            print("Error: assignment_id es obligatorio para enviar la respuesta.")
+            return None
+
+        endpoint = "{}?assignment_id={}&mac_address={}&sample_rate={}".format(
+            STT_ENDPOINT,
+            assignment_id,
+            self._encode_query_value(mac_address),
+            microphone_service.sample_rate,
+        )
+        client = None
+
+        try:
+            print("Enviando respuesta de voz a:", self._build_url(endpoint))
+            client = self._open_http_socket()
+            request = (
+                "POST {} HTTP/1.1\r\n"
+                "Host: {}:{}\r\n"
+                "Content-Type: application/octet-stream\r\n"
+                "Content-Length: {}\r\n"
+                "Connection: close\r\n"
+                "\r\n"
+            ).format(
+                endpoint,
+                self._host,
+                self._port,
+                microphone_service.total_pcm_bytes,
+            ).encode()
+
+            self._write_all(client, request)
+            capture_info = microphone_service.stream_pcm16_to_sink(
+                lambda chunk: self._write_all(client, chunk)
+            )
+            self._set_socket_timeout(client, HTTP_STT_TIMEOUT_SECONDS)
+
+            print(
+                "Esperando respuesta STT (máximo {} segundos)...".format(
+                    HTTP_STT_TIMEOUT_SECONDS
+                )
+            )
+            status_line, status_code, headers = self._read_status_and_headers(client)
+            body = self._read_small_body(
+                client,
+                headers,
+                limit=HTTP_STT_RESPONSE_MAX_BYTES,
+            )
+            print("Respuesta STT:", status_line)
+
+            if status_code < 200 or status_code >= 300:
+                print("Error HTTP {} en STT: {}".format(
+                    status_code,
+                    body.decode("utf-8", "replace"),
+                ))
+                return None
+
+            response_json = json.loads(body.decode("utf-8"))
+            print("Respuesta de procesamiento:", response_json)
+
+            if capture_info:
+                response_json["capture_info"] = capture_info
+
+            return response_json
+        except Exception as exc:
+            print("Error al enviar la respuesta de voz:", exc)
+            return None
+        finally:
+            if client is not None:
+                try:
+                    client.close()
+                except Exception:
+                    pass
 
     def download_audio(self, audio_file, destination_path=TEMP_AUDIO_DOWNLOAD_PATH):
         """Download a WAV file to flash without loading it fully into RAM."""

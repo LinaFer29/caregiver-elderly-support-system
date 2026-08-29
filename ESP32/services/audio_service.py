@@ -415,3 +415,24 @@ class AudioService:
 
         self._dac = None
         gc.collect()
+
+    def release_output(self):
+        """Leave the DAC in a neutral state before microphone capture.
+
+        The production flow alternates playback and microphone capture several
+        times. Fully deinitializing the DAC here made the next playback attempt
+        recreate GPIO25 and could leave the driver in `ESP_ERR_INVALID_STATE`.
+        For that reason we only silence the DAC and keep the reusable instance.
+        """
+
+        if self._dac is None:
+            return
+
+        try:
+            self._dac.write(128)
+        except Exception as exc:
+            print("No fue posible silenciar el DAC, se liberará:", exc)
+            self._release_dac()
+            return
+
+        sleep_ms(50)

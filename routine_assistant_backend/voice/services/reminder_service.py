@@ -2,6 +2,7 @@
 
 from datetime import timedelta
 
+from rest_framework.exceptions import ValidationError
 from django.utils import timezone
 
 from routines.models import Assignment
@@ -20,16 +21,24 @@ class ReminderService:
         if not mac_address:
             return None
 
-        device = (
-            Device.objects.select_related("elderly")
-            .filter(mac_address__iexact=mac_address.strip())
-            .first()
-        )
+        device = self.get_device_by_mac(mac_address)
 
         if not device or not device.elderly_id:
             return None
 
         return device.elderly_id
+
+    def get_device_by_mac(self, mac_address):
+        """Return the device identified by MAC address, if it exists."""
+
+        if not mac_address:
+            return None
+
+        return (
+            Device.objects.select_related("elderly")
+            .filter(mac_address__iexact=mac_address.strip())
+            .first()
+        )
 
     def _base_pending_assignments_queryset(self, elderly_id=None, target_date=None):
         """Return the shared base queryset for pending assignments."""
@@ -121,6 +130,37 @@ class ReminderService:
             return None
 
         return Device.objects.filter(elderly=elderly).first()
+
+    def get_assignment_for_device_response(self, mac_address, assignment_id):
+        """Return the pending assignment that belongs to a device's elderly."""
+
+        device = self.get_device_by_mac(mac_address)
+
+        if device is None:
+            raise ValidationError(
+                "No existe un dispositivo asociado a la mac_address recibida."
+            )
+
+        if not device.elderly_id:
+            raise ValidationError(
+                "El dispositivo recibido no tiene un adulto mayor asociado."
+            )
+
+        assignment = (
+            Assignment.objects.select_related("activity", "elderly")
+            .filter(id=assignment_id)
+            .first()
+        )
+
+        if assignment is None:
+            raise ValidationError("No existe la assignment indicada.")
+
+        if assignment.elderly_id != device.elderly_id:
+            raise ValidationError(
+                "La assignment no corresponde al adulto mayor asociado al dispositivo."
+            )
+
+        return assignment
 
     def mark_completed(self):
         """Mark an assignment as completed.

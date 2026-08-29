@@ -1,4 +1,4 @@
-"""Response resolution services for the voice assistant STT flow."""
+"""Interpret spoken responses for assignment result updates."""
 
 import re
 import unicodedata
@@ -7,70 +7,59 @@ from django.conf import settings
 
 
 class ResponseService:
-    """Map transcriptions to assistant intents and pre-recorded responses."""
+    """Interpret STT transcriptions into deterministic assignment outcomes."""
 
-    RESPONSE_CATALOG = {
-        "activity_completed": {
-            "response_text": "Actividad completada.",
-            "audio_file": "actividad_completada.wav",
-            "patterns": (
-                r"\bya\s+(realice|realic[eé]|hice|termine|termin[eé]|complete|complet[eé])\s+la\s+actividad\b",
-                r"\bactividad\s+(realizada|completada|terminada)\b",
-                r"\bya\s+esta\s+lista\s+la\s+actividad\b",
-                r"\btermine\b"
-            ),
-        },
-        "next_activity": {
-            "response_text": "La siguiente actividad es tomar agua.",
-            "audio_file": "siguiente_actividad.wav",
-            "patterns": (
-                r"\bque\s+actividad\s+sigue\b",
-                r"\bque\s+sigue\b",
-                r"\bcual\s+es\s+la\s+siguiente\s+actividad\b",
-                r"\bsiguiente\s+actividad\b",
-            ),
-        },
-    }
-    fallback_response = {
-        "intent": None,
-        "response_text": "No pude identificar la instruccion.",
-        "audio_file": None,
-    }
+    COMPLETED_PATTERNS = (
+        r"\b(si|sí)\b.*\b(ya\s+)?(hice|realice|realic[eé]|termine|termin[eé]|complete|complet[eé])\b",
+        r"\bya\s+(hice|realice|realic[eé]|termine|termin[eé]|complete|complet[eé])\b",
+        r"\bactividad\s+(realizada|terminada|completada)\b",
+        r"\bya\s+quedo\b",
+    )
+    MISSED_PATTERNS = (
+        r"\bno\s+(hice|he\s+hecho|realice|realic[eé]|termine|termin[eé]|complete|complet[eé])\b",
+        r"\bno\s+pude\b",
+        r"\bno\s+alcance\b",
+        r"\bactividad\s+no\s+(realizada|terminada|completada)\b",
+        r"\bquedo\s+pendiente\b",
+    )
 
-    def build_response(self, transcription):
-        """Build the serialized response payload for a transcription."""
+    def interpret_assignment_response(self, transcription):
+        """Return a deterministic assignment result from a transcription."""
 
         normalized_transcription = self.normalize_text(transcription)
-        response = self._resolve_intent(normalized_transcription)
+        result = self._resolve_assignment_result(normalized_transcription)
 
         return {
-            "transcription": normalized_transcription,
-            "intent": response["intent"],
-            "response_text": response["response_text"],
-            "audio_file": response["audio_file"],
+            "transcription": (transcription or "").strip(),
+            "normalized_transcription": normalized_transcription,
+            "was_interpreted": result is not None,
+            "result": result,
         }
 
     def get_audio_path(self, file_name):
-        """Return the absolute path for a known assistant audio response."""
+        """Return the absolute path for assistant-served audio files."""
 
         audio_root = settings.MEDIA_ROOT / "assistant_audio"
         return audio_root / file_name
 
     def normalize_text(self, text):
-        """Normalize text to simplify deterministic intent matching."""
+        """Normalize text to simplify deterministic rule matching."""
 
         compact_text = " ".join((text or "").strip().lower().split())
         normalized = unicodedata.normalize("NFD", compact_text)
-        return "".join(char for char in normalized if unicodedata.category(char) != "Mn")
+        return "".join(
+            char
+            for char in normalized
+            if unicodedata.category(char) != "Mn"
+        )
 
-    def _resolve_intent(self, normalized_transcription):
-        for intent, config in self.RESPONSE_CATALOG.items():
-            for pattern in config["patterns"]:
-                if re.search(pattern, normalized_transcription):
-                    return {
-                        "intent": intent,
-                        "response_text": config["response_text"],
-                        "audio_file": config["audio_file"],
-                    }
+    def _resolve_assignment_result(self, normalized_transcription):
+        for pattern in self.MISSED_PATTERNS:
+            if re.search(pattern, normalized_transcription):
+                return "missed"
 
-        return self.fallback_response
+        for pattern in self.COMPLETED_PATTERNS:
+            if re.search(pattern, normalized_transcription):
+                return "completed"
+
+        return None

@@ -15,16 +15,43 @@ class VoiceReminderSerializer(serializers.Serializer):
 
 
 class VoiceSTTRequestSerializer(serializers.Serializer):
-    """Validate the payload received from the voice assistant STT endpoint."""
+    """Validate multipart audio plus assignment metadata."""
 
     audio = serializers.FileField()
+    assignment_id = serializers.IntegerField(min_value=1)
+    mac_address = serializers.CharField()
     sample_rate = serializers.IntegerField(required=False, min_value=1)
+
+    def validate_mac_address(self, value):
+        normalized = str(value or "").strip()
+        if not normalized:
+            raise serializers.ValidationError("mac_address es obligatorio.")
+        return normalized
+
+
+class VoiceSTTMetadataSerializer(serializers.Serializer):
+    """Validate assignment metadata for octet-stream audio uploads."""
+
+    assignment_id = serializers.IntegerField(min_value=1)
+    mac_address = serializers.CharField()
+    sample_rate = serializers.IntegerField(required=False, min_value=1)
+
+    def validate_mac_address(self, value):
+        normalized = str(value or "").strip()
+        if not normalized:
+            raise serializers.ValidationError("mac_address es obligatorio.")
+        return normalized
 
 
 class VoiceSTTResponseSerializer(serializers.Serializer):
-    """Serializer for the STT response returned to the assistant device."""
+    """Serializer for definitive spoken-response processing results."""
 
+    audio_received = serializers.BooleanField()
+    stt_success = serializers.BooleanField()
     transcription = serializers.CharField()
-    intent = serializers.CharField(allow_null=True)
-    response_text = serializers.CharField()
-    audio_file = serializers.CharField(allow_null=True)
+    normalized_transcription = serializers.CharField()
+    was_interpreted = serializers.BooleanField()
+    result = serializers.CharField(allow_null=True)
+    assignment_id = serializers.IntegerField()
+    assignment_status = serializers.CharField()
+    assignment_updated = serializers.BooleanField()

@@ -1,9 +1,10 @@
 """Views dedicated to the voice assistant module."""
 
 from django.conf import settings
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import FileResponse, Http404
 from rest_framework import status
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.parsers import BaseParser, FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -11,6 +12,7 @@ from rest_framework.views import APIView
 from .constants import DEFAULT_AUDIO_SAMPLE_RATE
 from .serializers import (
     VoiceReminderSerializer,
+    VoiceSTTMetadataSerializer,
     VoiceSTTRequestSerializer,
     VoiceSTTResponseSerializer,
 )
@@ -55,18 +57,31 @@ class VoiceSTTView(APIView):
 
         try:
             if request.content_type == "application/octet-stream":
-                result = service.process_pcm16_command(
+                metadata_serializer = VoiceSTTMetadataSerializer(
+                    data=request.query_params,
+                )
+                metadata_serializer.is_valid(raise_exception=True)
+                metadata = metadata_serializer.validated_data
+
+                result = service.process_assignment_response_stream(
                     audio_bytes=request.data.get("audio_bytes", b""),
-                    sample_rate=DEFAULT_AUDIO_SAMPLE_RATE,
+                    mac_address=metadata["mac_address"],
+                    assignment_id=metadata["assignment_id"],
+                    sample_rate=metadata.get(
+                        "sample_rate",
+                        DEFAULT_AUDIO_SAMPLE_RATE,
+                    ),
                 )
             else:
                 serializer = VoiceSTTRequestSerializer(data=request.data)
                 serializer.is_valid(raise_exception=True)
-                result = service.process_speech_command(
+                result = service.process_assignment_response_file(
                     audio_file=serializer.validated_data["audio"],
+                    mac_address=serializer.validated_data["mac_address"],
+                    assignment_id=serializer.validated_data["assignment_id"],
                     sample_rate=serializer.validated_data.get("sample_rate"),
                 )
-        except ValidationError as exc:
+        except (DRFValidationError, DjangoValidationError) as exc:
             detail = exc.detail if hasattr(exc, "detail") else str(exc)
             return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
 
