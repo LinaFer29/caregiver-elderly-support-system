@@ -51,7 +51,7 @@ class VoiceSTTResponseSerializer(serializers.Serializer):
     transcription = serializers.CharField()
     normalized_transcription = serializers.CharField()
     was_interpreted = serializers.BooleanField()
-    result = serializers.CharField(allow_null=True)
+    result = serializers.CharField()
     assignment_id = serializers.IntegerField()
     assignment_status = serializers.CharField()
     assignment_updated = serializers.BooleanField()

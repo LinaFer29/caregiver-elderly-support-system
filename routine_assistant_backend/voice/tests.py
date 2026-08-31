@@ -18,6 +18,7 @@ from routines.models import Assignment
 from users.models import Caregiver, Device, Elderly
 from voice.constants import (
     DEFAULT_AUDIO_SAMPLE_RATE,
+    VOICE_RESPONSE_UNKNOWN_RESULT,
     VOICE_TTS_OUTPUT_SAMPLE_RATE,
 )
 from voice.services.assignment_response_service import AssignmentResponseService
@@ -48,10 +49,73 @@ class ResponseServiceTests(TestCase):
         self.assertEqual(response["result"], "missed")
         self.assertTrue(response["was_interpreted"])
 
-    def test_returns_uninterpreted_result_for_ambiguous_response(self):
+    @patch.object(
+        ResponseService,
+        "_compute_semantic_scores",
+        return_value={"completed": 0.93, "missed": 0.21},
+    )
+    def test_interprets_semantic_completed_variation(self, _scores_mock):
+        response = self.service.interpret_assignment_response("Eso ya lo hice")
+
+        self.assertEqual(response["result"], "completed")
+        self.assertEqual(response["decision_source"], "semantic")
+
+    @patch.object(
+        ResponseService,
+        "_compute_semantic_scores",
+        return_value={"completed": 0.92, "missed": 0.20},
+    )
+    def test_interprets_whisper_typo_as_completed_semantically(self, _scores_mock):
+        response = self.service.interpret_assignment_response("Activa completada")
+
+        self.assertEqual(response["result"], "completed")
+        self.assertTrue(response["was_interpreted"])
+
+    @patch.object(
+        ResponseService,
+        "_compute_semantic_scores",
+        return_value={"completed": 0.22, "missed": 0.89},
+    )
+    def test_interprets_semantic_missed_variation(self, _scores_mock):
+        response = self.service.interpret_assignment_response("Todavia no la hago")
+
+        self.assertEqual(response["result"], "missed")
+        self.assertEqual(response["decision_source"], "semantic")
+
+    @patch.object(
+        ResponseService,
+        "_compute_semantic_scores",
+        return_value={"completed": 0.40, "missed": 0.33},
+    )
+    def test_returns_unknown_when_scores_do_not_reach_threshold(self, _scores_mock):
+        response = self.service.interpret_assignment_response("Que actividad")
+
+        self.assertEqual(response["result"], VOICE_RESPONSE_UNKNOWN_RESULT)
+        self.assertFalse(response["was_interpreted"])
+
+    @patch.object(
+        ResponseService,
+        "_compute_semantic_scores",
+        return_value={"completed": 0.78, "missed": 0.76},
+    )
+    def test_returns_unknown_when_score_margin_is_too_small(self, _scores_mock):
+        response = self.service.interpret_assignment_response(
+            "Creo que si pero no estoy segura"
+        )
+
+        self.assertEqual(response["result"], VOICE_RESPONSE_UNKNOWN_RESULT)
+        self.assertFalse(response["was_interpreted"])
+        self.assertEqual(response["decision_source"], "semantic_low_margin")
+
+    @patch.object(
+        ResponseService,
+        "_compute_semantic_scores",
+        return_value={"completed": 0.24, "missed": 0.21},
+    )
+    def test_returns_unknown_for_ambiguous_response(self, _scores_mock):
         response = self.service.interpret_assignment_response("Buenos dias")
 
-        self.assertIsNone(response["result"])
+        self.assertEqual(response["result"], VOICE_RESPONSE_UNKNOWN_RESULT)
         self.assertFalse(response["was_interpreted"])
 
 
@@ -91,7 +155,7 @@ class AssignmentResponseServiceTests(TestCase):
             mac_address="AA:BB:CC:DD:EE:90",
             assignment_id=self.assignment.id,
             transcription="No recuerdo",
-            result=None,
+            result=VOICE_RESPONSE_UNKNOWN_RESULT,
         )
 
         self.assignment.refresh_from_db()
@@ -849,7 +913,7 @@ class VoiceAssistantServiceTests(TestCase):
             "transcription": "",
             "normalized_transcription": "",
             "was_interpreted": False,
-            "result": None,
+            "result": VOICE_RESPONSE_UNKNOWN_RESULT,
         }
         assignment = Mock()
         assignment.id = 90
@@ -872,7 +936,7 @@ class VoiceAssistantServiceTests(TestCase):
             sample_rate=DEFAULT_AUDIO_SAMPLE_RATE,
         )
 
-        self.assertIsNone(result["result"])
+        self.assertEqual(result["result"], VOICE_RESPONSE_UNKNOWN_RESULT)
         self.assertFalse(result["assignment_updated"])
         whisper_service.transcribe.assert_called_once()
         response_service.interpret_assignment_response.assert_called_once_with("")

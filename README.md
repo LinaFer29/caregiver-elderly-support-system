@@ -95,7 +95,7 @@ Desde la raíz del proyecto:
 cd routine_assistant_backend
 python3 -m venv venv
 source venv/bin/activate
-pip install django djangorestframework djangorestframework-simplejwt django-cors-headers coreapi paho-mqtt "celery[redis]"
+pip install django djangorestframework djangorestframework-simplejwt django-cors-headers coreapi paho-mqtt "celery[redis]" sentence-transformers
 python manage.py migrate
 python manage.py runserver
 ```
