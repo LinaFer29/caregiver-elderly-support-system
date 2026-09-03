@@ -58,3 +58,11 @@ export type RoutineByDate = {
   activities_count: number;
   general_status: "active" | "mixed" | "completed";
 };
+
+export type DailyAssignmentSummary = {
+  date: string;
+  total: number;
+  completed: number;
+  missed: number;
+  pending: number;
+};

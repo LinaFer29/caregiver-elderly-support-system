@@ -1,0 +1,12 @@
+Django==5.2.17
+djangorestframework==3.16.1
+djangorestframework-simplejwt==5.5.1
+django-cors-headers==4.9.0
+celery[redis]==5.6.3
+paho-mqtt==2.1.0
+faster-whisper==1.2.1
+sentence-transformers==6.0.0
+edge-tts==7.2.8
+numpy==2.4.6
+coreapi==2.3.3
+gunicorn==23.0.0

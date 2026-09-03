@@ -2,35 +2,37 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CalendarDays, Clock3, Activity, ListChecks, PlusCircle } from "lucide-react";
 import { useSelectedElderly } from "../context/useSelectedElderly";
-import { getRoutinesByElderly } from "../services/routine.services";
-import type { RoutineByDate } from "../types/Routine";
-
-function todayISO() {
-  const d = new Date();
-  const m = `${d.getMonth() + 1}`.padStart(2, "0");
-  const day = `${d.getDate()}`.padStart(2, "0");
-  return `${d.getFullYear()}-${m}-${day}`;
-}
+import {
+  getDailyAssignmentSummary,
+  getRoutinesByElderly,
+} from "../services/routine.services";
+import type { DailyAssignmentSummary, RoutineByDate } from "../types/Routine";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { selectedElderly } = useSelectedElderly();
 
   const [routines, setRoutines] = useState<RoutineByDate[]>([]);
+  const [dailySummary, setDailySummary] = useState<DailyAssignmentSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
       if (!selectedElderly) {
         setRoutines([]);
+        setDailySummary(null);
         setLoading(false);
         return;
       }
 
       try {
         setLoading(true);
-        const data = await getRoutinesByElderly(selectedElderly.id);
-        setRoutines(data);
+        const [routinesData, summaryData] = await Promise.all([
+          getRoutinesByElderly(selectedElderly.id),
+          getDailyAssignmentSummary(selectedElderly.id),
+        ]);
+        setRoutines(routinesData);
+        setDailySummary(summaryData);
       } catch (error) {
         console.error(error);
       } finally {
@@ -46,8 +48,6 @@ export default function DashboardPage() {
       routine.items.some((item) => item.is_active)
     ).length;
 
-    const todayItems = routines.find((routine) => routine.date === todayISO())?.items ?? [];
-
     const upcoming = routines
       .flatMap((routine) =>
         routine.items.map((item) => ({
@@ -60,7 +60,6 @@ export default function DashboardPage() {
 
     return {
       activeRoutines,
-      todayCount: todayItems.length,
       upcoming,
     };
   }, [routines]);
@@ -102,9 +101,45 @@ export default function DashboardPage() {
             </div>
             <div className="bg-white border border-border-soft rounded-2xl p-4">
               <p className="text-xs text-neutral-light">Actividades de hoy</p>
-              <p className="font-semibold text-neutral-dark mt-1">{loading ? "..." : summary.todayCount}</p>
+              <p className="font-semibold text-neutral-dark mt-1">
+                {loading ? "..." : dailySummary?.total ?? 0}
+              </p>
             </div>
           </div>
+
+          <section className="bg-white border border-border-soft rounded-2xl p-5">
+            <h2 className="text-lg font-semibold text-neutral-dark">Estado de actividades</h2>
+            {loading ? (
+              <p className="text-neutral-light mt-3">Cargando...</p>
+            ) : (
+              <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="rounded-xl border border-border-soft bg-app-background p-4">
+                  <p className="text-xs text-neutral-light">Total</p>
+                  <p className="mt-1 text-2xl font-semibold text-neutral-dark">
+                    {dailySummary?.total ?? 0}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border-soft bg-app-background p-4">
+                  <p className="text-xs text-neutral-light">Completadas</p>
+                  <p className="mt-1 text-2xl font-semibold text-green-700">
+                    {dailySummary?.completed ?? 0}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border-soft bg-app-background p-4">
+                  <p className="text-xs text-neutral-light">No completadas</p>
+                  <p className="mt-1 text-2xl font-semibold text-red-600">
+                    {dailySummary?.missed ?? 0}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border-soft bg-app-background p-4">
+                  <p className="text-xs text-neutral-light">Pendientes</p>
+                  <p className="mt-1 text-2xl font-semibold text-yellow-700">
+                    {dailySummary?.pending ?? 0}
+                  </p>
+                </div>
+              </div>
+            )}
+          </section>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <section className="bg-white border border-border-soft rounded-2xl p-5">

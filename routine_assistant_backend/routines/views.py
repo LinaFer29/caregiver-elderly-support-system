@@ -10,10 +10,12 @@ from .models import Assignment, Program
 from .serializers import (
     ActivityWithProgramSerializer,
     AssignmentSerializer,
+    DailyAssignmentSummarySerializer,
     ProgramSerializer,
     RoutineCatalogActivitySerializer,
     RoutineCreateSerializer,
 )
+from .services.query_service import RoutineQueryService
 from .utils import generate_dates
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
@@ -25,16 +27,15 @@ class ProgramViewSet(viewsets.ModelViewSet):
     queryset = Program.objects.all()
     serializer_class = ProgramSerializer
     permission_classes = [IsAuthenticated]
+    query_service = RoutineQueryService()
 
     def get_queryset(self):
-        queryset = Program.objects.filter(
-            caregiver__user=self.request.user,
-            elderly__caregiver__user=self.request.user,
-        )
+        caregiver = get_object_or_404(Caregiver, user=self.request.user)
         elderly_id = self.request.query_params.get("elderly_id")
-        if elderly_id:
-            queryset = queryset.filter(elderly_id=elderly_id)
-        return queryset
+        return self.query_service.get_visible_programs_queryset(
+            caregiver=caregiver,
+            elderly_id=elderly_id,
+        )
 
     def perform_create(self, serializer):
         caregiver = get_object_or_404(Caregiver, user=self.request.user)
@@ -63,16 +64,16 @@ class AssigmentViewSet(viewsets.ModelViewSet):
 
 class ActivitiesWithProgramView(APIView):
     permission_classes = [IsAuthenticated]
+    query_service = RoutineQueryService()
 
     def get(self, request):
         caregiver = Caregiver.objects.get(user=request.user)
         elderly_id = request.query_params.get("elderly_id")
 
-        programs = Program.objects.filter(caregiver=caregiver).select_related(
-            "activity", "elderly"
+        programs = self.query_service.get_visible_programs_queryset(
+            caregiver=caregiver,
+            elderly_id=int(elderly_id) if elderly_id else None,
         )
-        if elderly_id:
-            programs = programs.filter(elderly_id=elderly_id)
 
         activities = [program.activity for program in programs]
 
@@ -182,6 +183,7 @@ class RoutineCatalogView(APIView):
 
 class RoutineCreateView(APIView):
     permission_classes = [IsAuthenticated]
+    query_service = RoutineQueryService()
 
     def _parse_routine_id(self, routine_id: str):
         try:
@@ -190,62 +192,6 @@ class RoutineCreateView(APIView):
             return int(elderly_id), parsed_date
         except (ValueError, TypeError):
             return None, None
-
-    def _build_routine_payload(self, caregiver, elderly, date_value):
-        assignments = (
-            Assignment.objects.filter(elderly=elderly, date=date_value)
-            .select_related("activity", "activity__category")
-            .order_by("notification_time")
-        )
-
-        items = []
-        for assignment in assignments:
-            program = Program.objects.filter(
-                caregiver=caregiver,
-                elderly=elderly,
-                activity=assignment.activity,
-                date=assignment.date,
-                time=assignment.notification_time,
-            ).first()
-
-            items.append(
-                {
-                    "activity_id": assignment.activity.id,
-                    "title": assignment.activity.title,
-                    "description": assignment.activity.description,
-                    "category_name": assignment.activity.category.name,
-                    "category_color": assignment.activity.category.color,
-                    "time": assignment.notification_time.strftime("%H:%M:%S"),
-                    "frequency": program.frequency if program else "daily",
-                    "is_active": program.is_active if program else True,
-                    "status": assignment.status,
-                    "additional_instructions": assignment.additional_instructions,
-                }
-            )
-
-        has_inactive = any(not item["is_active"] for item in items)
-        all_completed = len(items) > 0 and all(
-            item["status"] == "completed" for item in items
-        )
-
-        general_status = "active"
-        if has_inactive:
-            general_status = "mixed"
-        if all_completed:
-            general_status = "completed"
-
-        return {
-            "id": f"{elderly.id}|{date_value.isoformat()}",
-            "date": date_value.isoformat(),
-            "elderly": {
-                "id": elderly.id,
-                "first_name": elderly.first_name,
-                "last_name": elderly.last_name,
-            },
-            "items": items,
-            "activities_count": len(items),
-            "general_status": general_status,
-        }
 
     def get(self, request, routine_id=None):
         caregiver = Caregiver.objects.get(user=request.user)
@@ -256,13 +202,15 @@ class RoutineCreateView(APIView):
                 return Response({"detail": "routine_id inválido."}, status=400)
 
             elderly = get_object_or_404(Elderly, id=elderly_id, caregiver=caregiver)
-            assignments = Assignment.objects.filter(elderly=elderly, date=routine_date)
-            if not assignments.exists():
+            routine_payload = self.query_service.get_visible_routine(
+                caregiver=caregiver,
+                elderly=elderly,
+                date_value=routine_date,
+            )
+            if routine_payload is None:
                 return Response({"detail": "Rutina no encontrada."}, status=404)
 
-            return Response(
-                self._build_routine_payload(caregiver, elderly, routine_date)
-            )
+            return Response(routine_payload)
 
         elderly_id = request.query_params.get("elderly_id")
 
@@ -271,23 +219,10 @@ class RoutineCreateView(APIView):
 
         elderly = get_object_or_404(Elderly, id=elderly_id, caregiver=caregiver)
 
-        assignments = (
-            Assignment.objects.filter(elderly=elderly)
-            .select_related("activity", "activity__category")
-            .order_by("date", "notification_time")
+        routines = self.query_service.list_visible_routines(
+            caregiver=caregiver,
+            elderly=elderly,
         )
-
-        dates = []
-        seen_dates = set()
-        for assignment in assignments:
-            if assignment.date not in seen_dates:
-                seen_dates.add(assignment.date)
-                dates.append(assignment.date)
-
-        routines = [
-            self._build_routine_payload(caregiver, elderly, date_value)
-            for date_value in dates
-        ]
         return Response(routines)
 
     def post(self, request):
@@ -484,5 +419,27 @@ class RoutineCreateView(APIView):
 
         updated_date = serializer.validated_data["start_date"]
         return Response(
-            self._build_routine_payload(caregiver, elderly, updated_date), status=200
+            self.query_service.build_routine_payload(
+                caregiver=caregiver,
+                elderly=elderly,
+                date_value=updated_date,
+            ),
+            status=200,
         )
+
+
+class DailyAssignmentSummaryView(APIView):
+    permission_classes = [IsAuthenticated]
+    query_service = RoutineQueryService()
+
+    def get(self, request):
+        caregiver = Caregiver.objects.get(user=request.user)
+        elderly_id = request.query_params.get("elderly_id")
+
+        if not elderly_id:
+            return Response({"detail": "elderly_id es requerido."}, status=400)
+
+        elderly = get_object_or_404(Elderly, id=elderly_id, caregiver=caregiver)
+        payload = self.query_service.get_daily_assignment_summary(elderly)
+        serializer = DailyAssignmentSummarySerializer(payload)
+        return Response(serializer.data)

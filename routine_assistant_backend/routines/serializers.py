@@ -1,5 +1,6 @@
 
 from rest_framework import serializers
+from django.utils import timezone
 from activities.models import Activity
 from .models import Assignment, Program
 
@@ -31,11 +32,14 @@ class ActivityWithProgramSerializer(serializers.ModelSerializer):
         queryset = obj.program_set.all()
         elderly_id = self.context.get("elderly_id")
         caregiver = self.context.get("caregiver")
+        current_date = timezone.localdate()
 
         if elderly_id is not None:
             queryset = queryset.filter(elderly_id=elderly_id)
         elif caregiver is not None:
             queryset = queryset.filter(caregiver=caregiver)
+
+        queryset = queryset.filter(date__gte=current_date)
 
         program = queryset.order_by("date", "time").first()
 
@@ -138,3 +142,11 @@ class RoutineCreateSerializer(serializers.Serializer):
             })
 
         return validated
+
+
+class DailyAssignmentSummarySerializer(serializers.Serializer):
+    date = serializers.DateField()
+    total = serializers.IntegerField(min_value=0)
+    completed = serializers.IntegerField(min_value=0)
+    missed = serializers.IntegerField(min_value=0)
+    pending = serializers.IntegerField(min_value=0)

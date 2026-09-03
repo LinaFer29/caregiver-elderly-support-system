@@ -1,5 +1,6 @@
 import { httpClient } from "./httpClient";
 import type {
+  DailyAssignmentSummary,
   RoutineByDate,
   CreateRoutinePayload,
   CreateRoutineResponse,
@@ -48,6 +49,20 @@ export const getRoutineById = async (routineId: string): Promise<RoutineByDate> 
     return response.data;
   } catch (error) {
     console.error("Error en getRoutineById:", error);
+    throw error;
+  }
+};
+
+export const getDailyAssignmentSummary = async (
+  elderlyId: number
+): Promise<DailyAssignmentSummary> => {
+  try {
+    const response = await httpClient.get("/routines/daily-summary/", {
+      params: { elderly_id: elderlyId },
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error en getDailyAssignmentSummary:", error);
     throw error;
   }
 };

@@ -1,0 +1,188 @@
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - routine_assistant_network
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    restart: unless-stopped
+    environment:
+      MQTT_USER: ${MQTT_USER:?set MQTT_USER in .env}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:?set MQTT_PASSWORD in .env}
+    command:
+      - /bin/sh
+      - -c
+      - |
+        set -eu
+        rm -f /mosquitto/data/passwordfile
+        mosquitto_passwd -b -c /mosquitto/data/passwordfile "$$MQTT_USER" "$$MQTT_PASSWORD"
+        exec mosquitto -c /mosquitto/config/mosquitto.conf
+    volumes:
+      - ./deployment/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./deployment/mosquitto/data:/mosquitto/data
+      - ./deployment/mosquitto/log:/mosquitto/log
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -h 127.0.0.1 -p 1883 -u \"$${MQTT_USER}\" -P \"$${MQTT_PASSWORD}\" -t '$$SYS/broker/version' -C 1 -W 3 >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    networks:
+      - routine_assistant_network
+
+  backend:
+    build:
+      context: ./routine_assistant_backend
+    restart: unless-stopped
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?set DJANGO_SECRET_KEY in .env}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-False}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
+      DJANGO_CORS_ALLOWED_ORIGINS: ${DJANGO_CORS_ALLOWED_ORIGINS:-}
+      DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+      MQTT_BROKER: ${MQTT_BROKER:-mosquitto}
+      MQTT_PORT: "${MQTT_PORT:-1883}"
+      MQTT_USER: ${MQTT_USER:?set MQTT_USER in .env}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:?set MQTT_PASSWORD in .env}
+      MQTT_KEEPALIVE: "${MQTT_KEEPALIVE:-60}"
+      HF_HOME: /app/.cache/huggingface
+      HUGGINGFACE_HUB_CACHE: /app/.cache/huggingface/hub
+      SENTENCE_TRANSFORMERS_HOME: /app/.cache/huggingface
+    command:
+      - /bin/sh
+      - /app/docker/backend-entrypoint.sh
+      - gunicorn
+      - routine_assistant_backend.wsgi:application
+      - --bind
+      - 0.0.0.0:8000
+    depends_on:
+      redis:
+        condition: service_healthy
+      mosquitto:
+        condition: service_healthy
+    volumes:
+      - ./routine_assistant_backend/db.sqlite3:/app/db.sqlite3
+      - ./routine_assistant_backend/media:/app/media
+      - ./routine_assistant_backend/staticfiles:/app/staticfiles
+      - hf_cache:/app/.cache/huggingface
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s=socket.socket(); s.settimeout(3); s.connect(('127.0.0.1', 8000)); s.close()"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - routine_assistant_network
+
+  celery_worker:
+    build:
+      context: ./routine_assistant_backend
+    restart: unless-stopped
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?set DJANGO_SECRET_KEY in .env}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-False}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
+      DJANGO_CORS_ALLOWED_ORIGINS: ${DJANGO_CORS_ALLOWED_ORIGINS:-}
+      DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+      MQTT_BROKER: ${MQTT_BROKER:-mosquitto}
+      MQTT_PORT: "${MQTT_PORT:-1883}"
+      MQTT_USER: ${MQTT_USER:?set MQTT_USER in .env}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:?set MQTT_PASSWORD in .env}
+      MQTT_KEEPALIVE: "${MQTT_KEEPALIVE:-60}"
+      HF_HOME: /app/.cache/huggingface
+      HUGGINGFACE_HUB_CACHE: /app/.cache/huggingface/hub
+      SENTENCE_TRANSFORMERS_HOME: /app/.cache/huggingface
+    command: ["celery", "-A", "routine_assistant_backend", "worker", "--loglevel=info"]
+    depends_on:
+      redis:
+        condition: service_healthy
+      mosquitto:
+        condition: service_healthy
+    volumes:
+      - ./routine_assistant_backend/db.sqlite3:/app/db.sqlite3
+      - ./routine_assistant_backend/media:/app/media
+      - hf_cache:/app/.cache/huggingface
+    networks:
+      - routine_assistant_network
+
+  celery_beat:
+    build:
+      context: ./routine_assistant_backend
+    restart: unless-stopped
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?set DJANGO_SECRET_KEY in .env}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-False}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
+      DJANGO_CORS_ALLOWED_ORIGINS: ${DJANGO_CORS_ALLOWED_ORIGINS:-}
+      DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+      MQTT_BROKER: ${MQTT_BROKER:-mosquitto}
+      MQTT_PORT: "${MQTT_PORT:-1883}"
+      MQTT_USER: ${MQTT_USER:?set MQTT_USER in .env}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:?set MQTT_PASSWORD in .env}
+      MQTT_KEEPALIVE: "${MQTT_KEEPALIVE:-60}"
+      HF_HOME: /app/.cache/huggingface
+      HUGGINGFACE_HUB_CACHE: /app/.cache/huggingface/hub
+      SENTENCE_TRANSFORMERS_HOME: /app/.cache/huggingface
+    command:
+      [
+        "celery",
+        "-A",
+        "routine_assistant_backend",
+        "beat",
+        "--loglevel=info",
+        "--schedule",
+        "/app/celerybeat-data/celerybeat-schedule.db",
+      ]
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./routine_assistant_backend/db.sqlite3:/app/db.sqlite3
+      - celery_beat_data:/app/celerybeat-data
+    networks:
+      - routine_assistant_network
+
+  frontend:
+    build:
+      context: ./frontend/care-assistant-app
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api/v1}
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${FRONTEND_HOST_PORT:-18080}:80"
+    volumes:
+      - ./routine_assistant_backend/staticfiles:/var/www/backend-static:ro
+      - ./routine_assistant_backend/media:/var/www/backend-media:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - routine_assistant_network
+
+networks:
+  routine_assistant_network:
+    driver: bridge
+
+volumes:
+  hf_cache:
+  celery_beat_data:

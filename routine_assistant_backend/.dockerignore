@@ -1,0 +1,15 @@
+.git
+.gitignore
+.env
+__pycache__/
+*.py[cod]
+media/
+staticfiles/
+celerybeat-schedule.db
+dump.rdb
+venv/
+.venv/
+.pytest_cache/
+.mypy_cache/
+htmlcov/
+*.log

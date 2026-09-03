@@ -125,6 +125,30 @@ npm run dev
 Frontend por defecto en:
 - `http://localhost:5173`
 
+## Ejecucion Con Docker Compose
+
+Desde la raiz del proyecto:
+
+```bash
+docker compose build
+docker compose up -d
+docker compose ps
+docker compose logs backend
+docker compose logs celery_worker
+docker compose logs celery_beat
+docker compose logs redis
+docker compose logs mosquitto
+docker compose logs frontend
+docker compose down
+```
+
+Frontend Docker local:
+- `http://localhost:8080`
+
+Notas:
+- El backend Django queda interno en Docker y el frontend proxya `/api/`, `/assistant/` y `/admin/`.
+- Mosquitto publica `1883` para preparar la futura conexion del ESP32.
+
 ## Variables de Entorno
 
 Archivo frontend:

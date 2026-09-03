@@ -3,6 +3,7 @@ from rest_framework import routers
 from .views import (
     ActivitiesWithProgramView,
     AssigmentViewSet,
+    DailyAssignmentSummaryView,
     ProgramViewSet,
     RoutineCatalogView,
     RoutineCreateView,
@@ -19,5 +20,6 @@ urlpatterns = [
     path('activities-with-program/<int:activity_id>/',ActivitiesWithProgramView.as_view()),
     path('routines/catalog/', RoutineCatalogView.as_view(), name='routines-catalog'),
     path('routines/', RoutineCreateView.as_view(), name='routines-create'),
+    path('routines/daily-summary/', DailyAssignmentSummaryView.as_view(), name='routines-daily-summary'),
     path('routines/<str:routine_id>/', RoutineCreateView.as_view(), name='routines-detail'),
 ]

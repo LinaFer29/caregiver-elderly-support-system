@@ -26,8 +26,6 @@ venv/
 .venv/
 __pycache__/
 *.py[cod]
-*.sqlite3
-db.sqlite3
 .pytest_cache/
 .mypy_cache/
 .coverage
@@ -49,8 +47,8 @@ build/
 .env
 .env.*
 !.env.example
+!**/.env.example
 *.local
-frontend/care-assistant-app/src/config/env.ts
 ESP32/config.py
 
 # =========================
