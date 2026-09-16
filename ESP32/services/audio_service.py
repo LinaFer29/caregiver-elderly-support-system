@@ -3,7 +3,6 @@
 import gc
 import struct
 
-from machine import DAC, Pin
 from time import sleep_ms, ticks_add, ticks_diff, ticks_us
 
 from config import MAX_DAC_RATE, PIN_AUDIO, VOLUMEN_PORCENTAJE
@@ -14,6 +13,7 @@ class AudioService:
 
     def __init__(
         self,
+        dac,
         pin_audio=PIN_AUDIO,
         max_dac_rate=MAX_DAC_RATE,
         volumen_porcentaje=VOLUMEN_PORCENTAJE,
@@ -21,7 +21,7 @@ class AudioService:
         self._pin_audio = pin_audio
         self._max_dac_rate = max_dac_rate
         self._volumen_porcentaje = volumen_porcentaje
-        self._dac = None
+        self._dac = dac
 
     def read_wav_info(self, path):
         """Read WAV container metadata without loading the full file in RAM."""
@@ -186,39 +186,17 @@ class AudioService:
         return table
 
     def _get_or_initialize_dac(self):
-        """Return a reusable DAC instance, creating it only once when possible."""
+        """Return the persistent DAC owned by main.py."""
 
-        if self._dac is not None:
-            try:
-                self._dac.write(128)
-                return self._dac
-            except Exception as exc:
-                print("El DAC existente no respondió, se recreará:", exc)
-                self._release_dac()
+        if self._dac is None:
+            raise RuntimeError("DAC no inicializado.")
 
-        last_error = None
+        try:
+            self._dac.write(128)
+        except Exception:
+            raise RuntimeError("No fue posible silenciar el DAC existente.")
 
-        for attempt in range(1, 3):
-            try:
-                print("Inicializando DAC intento", attempt)
-                self._dac = DAC(Pin(self._pin_audio))
-                sleep_ms(20)
-                self._dac.write(128)
-                sleep_ms(20)
-                return self._dac
-            except Exception as exc:
-                last_error = exc
-                print("Error al inicializar DAC intento {}: {}".format(attempt, exc))
-                self._release_dac()
-                gc.collect()
-                sleep_ms(200)
-
-        raise RuntimeError(
-            "No fue posible inicializar el DAC GPIO{}: {}".format(
-                self._pin_audio,
-                last_error,
-            )
-        )
+        return self._dac
 
     def _play_pcm_u8_8k(self, path, info):
         """Optimized path for WAV PCM unsigned 8-bit mono 8000 Hz."""
@@ -380,7 +358,7 @@ class AudioService:
             )
 
     def _release_audio_resources(self, dac, audio_buffer, volume_table):
-        """Reset DAC output and free buffers even when playback fails."""
+        """Free playback buffers while keeping the persistent DAC alive."""
 
         gc.enable()
 
@@ -396,43 +374,32 @@ class AudioService:
         gc.collect()
 
     def _release_dac(self):
-        """Fully release the DAC only when it becomes unusable."""
+        """Backward-compatible alias for silencing the persistent DAC."""
+
+        self.release_output()
+
+    def release_output(self):
+        """Silence the persistent DAC without deinitializing it."""
 
         if self._dac is None:
             return
 
+        dac = self._dac
+
         try:
-            self._dac.write(128)
+            dac.write(128)
         except Exception:
             pass
 
         sleep_ms(50)
-
-        try:
-            self._dac.deinit()
-        except (AttributeError, OSError):
-            pass
-
-        self._dac = None
         gc.collect()
 
-    def release_output(self):
-        """Leave the DAC in a neutral state before microphone capture.
+    def close(self):
+        """Silence the persistent DAC before dropping this service instance."""
 
-        The production flow alternates playback and microphone capture several
-        times. Fully deinitializing the DAC here made the next playback attempt
-        recreate GPIO25 and could leave the driver in `ESP_ERR_INVALID_STATE`.
-        For that reason we only silence the DAC and keep the reusable instance.
-        """
+        self.release_output()
 
-        if self._dac is None:
-            return
+    def deinit(self):
+        """Silence the persistent DAC before dropping this service instance."""
 
-        try:
-            self._dac.write(128)
-        except Exception as exc:
-            print("No fue posible silenciar el DAC, se liberará:", exc)
-            self._release_dac()
-            return
-
-        sleep_ms(50)
+        self.release_output()

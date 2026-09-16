@@ -1,14 +1,12 @@
 """MQTT communication service for the ESP32 MicroPython application."""
 
+import gc
 import json
 import time
 
-from models.reminder import Reminder
-from services.audio_service import AudioService
-from services.http_service import HttpService
-from services.microphone_service import MicrophoneService
 
 from config import (
+    DEBUG_MEMORY,
     MQTT_BROKER,
     MQTT_KEEPALIVE,
     MQTT_PASSWORD,
@@ -17,12 +15,21 @@ from config import (
     MQTT_TOPIC_PREFIX,
     MQTT_TOPIC_SUFFIX,
     MQTT_USER,
+    MQTT_USE_TLS,
 )
 
 try:
     from umqtt.simple import MQTTClient
 except ImportError:
     MQTTClient = None
+
+
+def log_memory(label):
+    """Print heap diagnostics, including fragmentation details when available."""
+
+    gc.collect()
+    if DEBUG_MEMORY:
+        print("{}: {}".format(label, gc.mem_free()))
 
 
 class MQTTService:
@@ -35,28 +42,26 @@ class MQTTService:
         user=MQTT_USER,
         password=MQTT_PASSWORD,
         keepalive=MQTT_KEEPALIVE,
+        use_tls=MQTT_USE_TLS,
         reconnect_delay=MQTT_RECONNECT_DELAY,
         topic_prefix=MQTT_TOPIC_PREFIX,
         topic_suffix=MQTT_TOPIC_SUFFIX,
-        http_service=None,
-        audio_service=None,
-        microphone_service=None,
     ):
         self._broker = broker
         self._port = port
         self._user = user
         self._password = password
         self._keepalive = keepalive
+        self._use_tls = use_tls
         self._reconnect_delay = reconnect_delay
         self._topic_prefix = topic_prefix
         self._topic_suffix = topic_suffix
-        self._http_service = http_service or HttpService()
-        self._audio_service = audio_service or AudioService()
-        self._microphone_service = microphone_service or MicrophoneService()
         self._client = None
         self._topic = None
         self._mac_address = None
         self._client_id = None
+        self._pending_activity = None
+        self._ssl_context = None
 
     def build_device_id(self, mac_address):
         """Build a stable MQTT device identifier from the ESP32 MAC address."""
@@ -82,23 +87,78 @@ class MQTTService:
         self._client_id = self.build_device_id(mac_address)
         self._topic = self.build_topic(mac_address)
 
-        print("Conectando MQTT...")
-        client = MQTTClient(
-            client_id=self._client_id,
-            server=self._broker,
-            port=self._port,
-            user=self._user,
-            password=self._password,
-            keepalive=self._keepalive,
-        )
+        print("")
+        print("=== MQTT DEBUG ===")
+        log_memory("Heap libre antes de MQTT")
+        print("Broker:", self._broker)
+        print("Puerto:", self._port)
+        print("Client ID:", self._client_id)
+        print("TLS:", self._use_tls)
+
+        print("Construyendo cliente MQTT...")
+        client = self._build_client()
+
+        log_memory("Heap libre antes de connect()")
+
         client.set_callback(self._on_message)
-        client.connect()
+        
+        log_memory("Heap inmediatamente antes de TLS/MQTT")
+
+        print("Ejecutando MQTT connect...")
+
+        try:
+            try:
+                result = client.connect(timeout=10)
+            except TypeError:
+                result = client.connect()
+            print("CONNECT MQTT terminado:", result)
+        except Exception as exc:
+            print("ERROR EN MQTT CONNECT:", type(exc).__name__, repr(exc))
+            raise
+
+        print("Suscribiendo a:", self._topic)
+
         client.subscribe(self._topic)
 
         self._client = client
+
         print("MQTT conectado")
         print("Suscrito a:", self._topic)
+        log_memory("Heap después MQTT connect")
 
+    def _to_bytes(self, value):
+        if value is None or isinstance(value, bytes):
+            return value
+        return str(value).encode()
+    
+    def _build_client(self):
+        """Build MQTT client with optional TLS."""
+
+        kwargs = {
+            "client_id": self._to_bytes(self._client_id),
+            "server": self._broker,
+            "port": self._port,
+            "user": self._to_bytes(self._user),
+            "password": self._to_bytes(self._password),
+            "keepalive": self._keepalive,
+        }
+
+        if not self._use_tls:
+            return MQTTClient(**kwargs)
+
+        print("Configurando MQTT TLS...")
+
+        import ssl
+
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        ctx.verify_mode = ssl.CERT_NONE
+        self._ssl_context = ctx
+
+        return MQTTClient(
+            ssl=ctx,
+            **kwargs
+        )
+    
     def publish(self, topic, payload, retain=False, qos=0):
         """Publish a message using the active MQTT connection."""
 
@@ -107,29 +167,44 @@ class MQTTService:
 
         self._client.publish(topic, payload, retain=retain, qos=qos)
 
-    def listen_forever(self, mac_address):
-        """Keep the MQTT connection alive, reconnecting when necessary."""
+    def wait_for_activity(self, mac_address):
+        """Wait for one MQTT activity payload and close the broker connection."""
 
         while True:
             try:
-                if self._client is None:
-                    self.connect(mac_address)
-                    print("Esperando mensajes...")
+                self._pending_activity = None
+                self.connect(mac_address)
+                print("Esperando actividad MQTT...")
 
-                self._client.check_msg()
-                time.sleep_ms(200)
+                while self._pending_activity is None:
+                    self._client.wait_msg()
+
+                payload = self._pending_activity
+                print("Actividad MQTT recibida. Cerrando MQTT antes de HTTPS/audio.")
+                return payload
+
             except Exception as exc:
-                print("Conexión MQTT perdida:", exc)
-                self._close_client()
+                print(
+                    "Conexión MQTT perdida:",
+                    type(exc).__name__,
+                    repr(exc)
+                )
                 print(
                     "Reintentando conexión MQTT en {} segundos...".format(
                         self._reconnect_delay
                     )
                 )
+            finally:
+                self._pending_activity = None
+                self._close_client()
+                self._ssl_context = None
+                gc.collect()
+
+            if self._pending_activity is None:
                 time.sleep(self._reconnect_delay)
 
     def _on_message(self, topic, payload):
-        """Handle an incoming MQTT message and print its contents."""
+        """Decode the MQTT message and store activity payloads for later work."""
 
         topic_text = self._decode_bytes(topic)
         payload_text = self._decode_bytes(payload)
@@ -138,6 +213,7 @@ class MQTTService:
         print("MQTT mensaje recibido")
         print("Topic:", topic_text)
         print("Payload:", payload_text)
+        log_memory("Heap al recibir actividad")
 
         try:
             payload_json = json.loads(payload_text)
@@ -146,74 +222,12 @@ class MQTTService:
 
         if isinstance(payload_json, dict):
             if payload_json.get("type") == "activity":
-                self._handle_activity_message(payload_json)
+                self._pending_activity = payload_json
+                print("Actividad pendiente almacenada.")
+                return
 
             for key, value in payload_json.items():
                 print("{}: {}".format(key, value))
-
-    def _handle_activity_message(self, payload_json):
-        """Download and play the reminder audio referenced by the MQTT payload."""
-
-        try:
-            reminder = Reminder.from_dict(payload_json)
-        except Exception as exc:
-            print("Error al interpretar el payload MQTT como recordatorio:", exc)
-            return
-
-        print("")
-        print("Actividad recibida:")
-        print("ID assignment:", reminder.assignment_id)
-        print("Actividad:", reminder.activity)
-        print("Mensaje:", reminder.message)
-        print("Audio:", reminder.audio_file)
-
-        if not reminder.audio_file:
-            print("Error: el mensaje MQTT no contiene audio_file.")
-            return
-
-        print("")
-        print("Descargando audio del recordatorio...")
-        wav_path = self._http_service.download_audio(reminder.audio_file)
-
-        if not wav_path:
-            print("No fue posible descargar el audio del recordatorio.")
-            return
-
-        try:
-            print("Reproduciendo recordatorio...")
-            self._audio_service.play_wav(wav_path)
-            print("Reproducción terminada.")
-        except Exception as exc:
-            print("Error durante la reproducción del audio:", exc)
-            return
-
-        try:
-            self._audio_service.release_output()
-        except Exception as exc:
-            print("No fue posible liberar el DAC antes de grabar:", exc)
-            return
-
-        if not reminder.assignment_id:
-            print("Error: el mensaje MQTT no contiene assignment_id.")
-            return
-
-        response_result = self._http_service.submit_assignment_response_stream(
-            mac_address=self._mac_address,
-            assignment_id=reminder.assignment_id,
-            microphone_service=self._microphone_service,
-        )
-
-        if response_result is None:
-            print("No fue posible procesar la respuesta hablada.")
-            return
-
-        print("")
-        print("Resultado de la respuesta:")
-        print("Assignment:", response_result.get("assignment_id"))
-        print("Transcripción:", response_result.get("transcription"))
-        print("Resultado:", response_result.get("result"))
-        print("Estado final:", response_result.get("assignment_status"))
-        print("Actualizada:", response_result.get("assignment_updated"))
 
     def _decode_bytes(self, value):
         """Decode MQTT bytes to a printable string."""
@@ -232,14 +246,34 @@ class MQTTService:
             )
 
     def _close_client(self):
-        """Close the current MQTT client if it exists."""
+        """Close the current MQTT client and release TLS/socket references."""
 
         if self._client is None:
+            gc.collect()
             return
 
+        client = self._client
+        self._client = None
+
         try:
-            self._client.disconnect()
+            client.disconnect()
         except Exception:
             pass
 
-        self._client = None
+        for attr in ("sock", "_sock", "socket", "_socket"):
+            try:
+                sock = getattr(client, attr, None)
+                if sock is not None:
+                    sock.close()
+            except Exception:
+                pass
+
+        del client
+        gc.collect()
+
+    def close(self):
+        """Public cleanup hook used by the main state machine."""
+
+        self._close_client()
+        self._ssl_context = None
+        gc.collect()

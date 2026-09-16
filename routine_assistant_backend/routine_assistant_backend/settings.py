@@ -82,6 +82,7 @@ DEFAULT_ALLOWED_HOSTS = [
     'localhost',
     '0.0.0.0',
     '127.0.0.1',
+    '192.168.1.65',
 ]
 ALLOWED_HOSTS = _get_list_env(
     "DJANGO_ALLOWED_HOSTS",

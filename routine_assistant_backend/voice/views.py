@@ -4,7 +4,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import FileResponse, Http404
 from rest_framework import status
-from rest_framework.exceptions import ValidationError as DRFValidationError
+from rest_framework.exceptions import ParseError, ValidationError as DRFValidationError
 from rest_framework.parsers import BaseParser, FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -24,9 +24,53 @@ class OctetStreamAudioParser(BaseParser):
     """Parse raw PCM16 bytes sent as application/octet-stream."""
 
     media_type = "application/octet-stream"
+    chunk_size = 4096
 
     def parse(self, stream, media_type=None, parser_context=None):
-        return {"audio_bytes": stream.read()}
+        request = (parser_context or {}).get("request")
+        content_length = getattr(request, "META", {}).get("CONTENT_LENGTH")
+
+        try:
+            expected_length = int(content_length)
+        except (TypeError, ValueError):
+            raise ParseError("Content-Length es obligatorio para audio PCM16.")
+
+        if expected_length <= 0:
+            raise ParseError("Content-Length debe ser mayor que cero.")
+
+        print("STT body expected={}".format(expected_length), flush=True)
+
+        received = bytearray()
+
+        while len(received) < expected_length:
+            remaining = expected_length - len(received)
+            chunk = stream.read(min(self.chunk_size, remaining))
+
+            if not chunk:
+                break
+
+            received.extend(chunk)
+
+        received_length = len(received)
+        print("STT body received={}".format(received_length), flush=True)
+
+        if received_length != expected_length:
+            print(
+                "STT body incomplete expected={} received={}".format(
+                    expected_length,
+                    received_length,
+                ),
+                flush=True,
+            )
+            raise ParseError(
+                "Audio PCM16 incompleto: esperados {} bytes, recibidos {}.".format(
+                    expected_length,
+                    received_length,
+                )
+            )
+
+        print("STT body complete bytes={}".format(received_length), flush=True)
+        return {"audio_bytes": bytes(received)}
 
 
 class VoiceReminderListView(APIView):

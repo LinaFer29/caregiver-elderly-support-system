@@ -1,0 +1,25 @@
+services:
+  mosquitto:
+    command:
+      - /bin/sh
+      - -c
+      - |
+        set -eu
+        rm -f /mosquitto/data/passwordfile
+        mosquitto_passwd -b -c /mosquitto/data/passwordfile "$$MQTT_USER" "$$MQTT_PASSWORD"
+        chown -R mosquitto:mosquitto /mosquitto/data
+        exec mosquitto -c /mosquitto/config/mosquitto.conf
+    ports:
+      - "0.0.0.0:1884:1883"
+    volumes:
+      - ./deployment/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - local_mosquitto_data:/mosquitto/data
+      - ./deployment/mosquitto/log:/mosquitto/log
+      - ./deployment/mosquitto/certs:/mosquitto/certs:ro
+
+  backend:
+    ports:
+      - "0.0.0.0:8000:8000"
+
+volumes:
+  local_mosquitto_data:
