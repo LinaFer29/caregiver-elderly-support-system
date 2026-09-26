@@ -106,9 +106,18 @@ class VoiceSTTView(APIView):
                 )
                 metadata_serializer.is_valid(raise_exception=True)
                 metadata = metadata_serializer.validated_data
+                audio_bytes = request.data.get("audio_bytes", b"")
+
+                with open("/tmp/stt_debug_last.pcm", "wb") as debug_file:
+                    debug_file.write(audio_bytes)
+
+                print(
+                    "STT DEBUG PCM saved bytes={}".format(len(audio_bytes)),
+                    flush=True,
+                )
 
                 result = service.process_assignment_response_stream(
-                    audio_bytes=request.data.get("audio_bytes", b""),
+                    audio_bytes=audio_bytes,
                     mac_address=metadata["mac_address"],
                     assignment_id=metadata["assignment_id"],
                     sample_rate=metadata.get(
