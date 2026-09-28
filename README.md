@@ -1,120 +1,245 @@
-# Routine Assistant - Proyecto de Grado
+# Aura: Sistema de asistencia y monitoreo para cuidadores de adultos mayores basado en asistente de voz - Proyecto de Grado
 
-Aplicación web para la gestión de rutinas y actividades de cuidado de adultos mayores.
+Aura es un sistema para apoyar la gestión y seguimiento de rutinas de cuidado de adultos mayores. La aplicación permite que un cuidador administre adultos mayores, actividades, categorías, rutinas programadas y dispositivos ESP32 asociados para emitir recordatorios por voz y recibir respuestas habladas.
 
-El sistema está enfocado en cuidadores, quienes pueden:
-- Registrarse e iniciar sesión.
-- Crear y administrar categorías de actividades.
-- Crear actividades con programación (fecha, hora, frecuencia, estado activo).
-- Registrar y editar perfiles de adultos mayores asociados.
-- Consultar actividades programadas.
+## Versión vigente
 
-## Arquitectura del Proyecto
+La rama `version-2` corresponde a la versión actual y funcional del proyecto. Este README documenta el estado implementado en esa rama y no toma como referencia `main`, `master` u otras ramas.
 
-El repositorio está organizado en 3 bloques principales:
+## Arquitectura general
 
-- `routine_assistant_backend/`: API REST en Django + Django REST Framework.
-- `frontend/care-assistant-app/`: aplicación web en React + TypeScript + Vite.
-- `DatosPruebaJSON/`: archivos JSON con datos de prueba.
+El proyecto está organizado en cuatro bloques principales:
 
-## Stack Tecnológico
+- `frontend/care-assistant-app/`: aplicación web para cuidadores desarrollada con React, TypeScript y Vite.
+- `routine_assistant_backend/`: API REST y servicios de voz desarrollados con Django, Django REST Framework, Celery y SQLite.
+- `ESP32/`: firmware y pruebas del dispositivo físico. La versión principal está en Arduino/C++ dentro de `ESP32/routine_assistant/`.
+- `deployment/`: configuración de Mosquitto para el broker MQTT usado por Docker Compose.
+
+En ejecución completa, el frontend consume la API del backend; el backend programa rutinas y asignaciones; Celery Beat revisa cada minuto las asignaciones pendientes; Celery Worker publica recordatorios por MQTT; el ESP32 recibe el mensaje, descarga el audio generado por el backend, lo reproduce por Bluetooth, graba la respuesta del usuario y la envía al backend para transcripción y actualización de estado.
+
+## Tecnologías utilizadas
 
 ### Backend
+
 - Python 3.11
-- Django 5.x
+- Django 5.2
 - Django REST Framework
-- Simple JWT (`djangorestframework-simplejwt`)
-- `django-cors-headers`
-- SQLite (por defecto)
+- Simple JWT para autenticación
+- Celery con Redis como broker/result backend
+- SQLite como base de datos configurada
+- Mosquitto/MQTT mediante `paho-mqtt`
+- Faster Whisper para STT en español
+- Sentence Transformers para interpretación semántica de respuestas
+- Edge TTS y `ffmpeg` para generación de audio WAV
+- Gunicorn en despliegue Docker
 
 ### Frontend
+
 - React 19
 - TypeScript
 - Vite
 - React Router
 - Axios
 - Tailwind CSS
-- React Hook Form + Zod
+- React Hook Form y Zod
+- Lucide React
 
-## Modelo Funcional (Resumen)
+### Dispositivo físico
 
-### Usuarios
-- `User` (custom): extiende `AbstractUser` con rol (`caregiver` o `elderly`).
-- `Caregiver`: perfil de cuidador asociado 1:1 con `User`.
-- `Elderly`: adulto mayor asociado a un `Caregiver`.
+- ESP32
+- Firmware Arduino/C++
+- Wi-Fi
+- MQTT
+- HTTP
+- LittleFS
+- Bluetooth A2DP para reproducción en parlante
+- Micrófono I2S INMP441
+- Sensor táctil TTP223B
 
-### Actividades
-- `Category`: categoría personalizada por cuidador (nombre, color, icono).
-- `Activity`: actividad (título, descripción, categoría).
+También existen archivos MicroPython y diagnósticos en `ESP32/`, pero la implementación principal documentada es la de `ESP32/routine_assistant/`.
 
-### Rutinas
-- `Program`: programación de una actividad (fecha, hora, frecuencia, activa/inactiva).
-- `Assignment`: asignaciones de actividades a adultos mayores (modelo existente en backend).
+## Funcionalidades implementadas
 
-## API REST (base)
+- Registro e inicio de sesión de cuidadores con JWT.
+- Consulta del usuario autenticado y renovación de token.
+- Gestión de adultos mayores asociados a un cuidador.
+- Gestión de categorías y actividades.
+- Gestión de rutinas por adulto mayor, con actividades programadas por fecha, hora y frecuencia.
+- Creación, edición, consulta y eliminación de rutinas desde el frontend.
+- Catálogo de actividades para construir rutinas.
+- Resumen diario de asignaciones por adulto mayor.
+- Asociación de dispositivos físicos a adultos mayores mediante número de serie.
+- Despacho automático de recordatorios pendientes con Celery Beat y Celery Worker.
+- Publicación de recordatorios al ESP32 por MQTT.
+- Generación de audio TTS para recordatorios.
+- Descarga de audio desde el ESP32 vía HTTP.
+- Captura de respuesta hablada en el ESP32 y envío al backend.
+- Procesamiento STT con Faster Whisper.
+- Interpretación de respuestas como `completed`, `missed` o `unknown`.
+- Actualización de asignaciones con respuesta, hora de respuesta y estado cuando aplica.
 
-Base URL backend local:
-- `http://localhost:8000/api/v1/`
+## Flujo del sistema
 
-Endpoints principales:
+1. El cuidador crea adultos mayores, categorías, actividades y rutinas desde el frontend.
+2. El frontend usa `VITE_API_URL` para consumir la API REST del backend.
+3. El backend crea registros `Program` y `Assignment` para las actividades programadas.
+4. Celery Beat ejecuta cada minuto la tarea `voice.tasks.dispatch_due_assignments`.
+5. La tarea busca asignaciones `pending` programadas para el minuto actual.
+6. Para cada asignación con dispositivo asociado, el backend genera un mensaje TTS y publica un payload MQTT en el tópico `device/<mac-sin-dos-puntos>/audio`.
+7. El ESP32 escucha su tópico, valida el payload, descarga el WAV desde `/assistant/audio/<archivo>/` y lo reproduce por Bluetooth.
+8. Si el usuario toca el sensor, el ESP32 graba audio PCM16 mono a 16 kHz desde el micrófono I2S.
+9. El ESP32 envía la grabación a `/assistant/stt/` con `mac_address`, `assignment_id` y `sample_rate`.
+10. El backend normaliza el audio, transcribe con Faster Whisper, interpreta la respuesta y actualiza la asignación.
 
-### Autenticación y usuarios
-- `POST /register/` registro de cuidador.
-- `POST /login/` obtiene `access` y `refresh` JWT.
-- `POST /refresh/` renueva token `access`.
-- CRUD `GET/POST/PUT/DELETE /caregivers/`
-- CRUD `GET/POST/PUT/DELETE /elderly/`
+## API principal
 
-### Actividades y categorías
-- CRUD `GET/POST/PUT/DELETE /activities/`
-- CRUD `GET/POST/PUT/DELETE /categories/`
+Base local de la API:
 
-### Programación
-- CRUD `GET/POST/PUT/DELETE /programs/`
-- CRUD `GET/POST/PUT/DELETE /assigments/`
-- `GET /activities-with-program/` lista actividades con su programación.
-- `POST /activities-with-program/` crea actividad + programación en una sola operación.
-- `PUT /activities-with-program/<activity_id>/` actualiza actividad + programación.
+```text
+http://localhost:8000/api/v1/
+```
 
-Documentación DRF habilitada en:
-- `/api/v1/docs/app/activities`
+Endpoints relevantes:
 
-## Requisitos Previos
+- `POST /register/`: registra un cuidador.
+- `POST /login/`: obtiene tokens `access` y `refresh`.
+- `POST /refresh/`: renueva el token de acceso.
+- `GET /me/`: consulta el usuario autenticado.
+- `GET/POST/PUT/PATCH/DELETE /caregivers/`: gestión de cuidadores del usuario autenticado.
+- `GET/POST/PUT/PATCH/DELETE /elderly/`: gestión de adultos mayores del cuidador.
+- `POST /devices/associate/`: asocia un dispositivo existente a un adulto mayor.
+- `GET/POST/PUT/PATCH/DELETE /categories/`: gestión de categorías.
+- `GET/POST/PUT/PATCH/DELETE /activities/`: gestión de actividades.
+- `GET/POST/PUT/PATCH/DELETE /programs/`: gestión de programaciones.
+- `GET/POST/PUT/PATCH/DELETE /assigments/`: gestión base de asignaciones.
+- `GET/POST /routines/`: lista o crea rutinas por adulto mayor.
+- `GET/PUT/DELETE /routines/<elderly_id|YYYY-MM-DD>/`: consulta, edita o elimina una rutina diaria.
+- `GET /routines/catalog/`: lista actividades disponibles para armar rutinas.
+- `GET /routines/daily-summary/`: devuelve resumen diario de asignaciones.
+- `GET /activities-with-program/`: lista actividades con programación.
+- `POST /activities-with-program/`: crea actividad, programación y asignación.
+- `PUT /activities-with-program/<activity_id>/`: actualiza actividad y programación.
+
+Endpoints de voz y dispositivo:
+
+- `GET /api/voice/reminders?mac_address=<mac>`: consulta recordatorios vencidos para un dispositivo.
+- `POST /assistant/stt/`: recibe audio de respuesta y procesa STT.
+- `GET /assistant/audio/<file_name>/`: sirve audios WAV generados por TTS.
+
+La documentación DRF está disponible en:
+
+```text
+http://localhost:8000/api/v1/docs/app/activities
+```
+
+## Requisitos
 
 - Python 3.11+
-- Node.js 18+
-- npm 9+
+- Node.js 20 recomendado para el frontend actual
+- npm
+- Docker y Docker Compose para ejecución integrada
+- `ffmpeg` si se ejecuta el backend localmente sin Docker
+- Redis si se ejecutan Celery Worker y Beat localmente sin Docker
+- Broker MQTT Mosquitto si se prueba el ESP32 sin Docker Compose
 
-## Configuración y Ejecución
+## Variables de entorno
 
-### 1) Backend
+Existe un archivo de referencia en `.env.example`. No se deben versionar credenciales reales.
+
+Para Docker Compose, crear `.env` en la raíz del proyecto con variables como:
+
+```env
+DJANGO_SECRET_KEY=replace-with-a-long-random-secret-key
+DJANGO_DEBUG=False
+DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,backend
+DJANGO_CORS_ALLOWED_ORIGINS=http://localhost:5173
+DJANGO_CSRF_TRUSTED_ORIGINS=http://localhost:5173
+CELERY_BROKER_URL=redis://redis:6379/0
+CELERY_RESULT_BACKEND=redis://redis:6379/0
+MQTT_BROKER=mosquitto
+MQTT_PORT=1883
+MQTT_USER=replace-with-mqtt-user
+MQTT_PASSWORD=replace-with-mqtt-password
+MQTT_KEEPALIVE=60
+FRONTEND_HOST_PORT=18080
+VITE_API_URL=/api/v1
+```
+
+Para ejecución manual del backend, crear `routine_assistant_backend/.env`. Si Redis y MQTT corren en la máquina local, usar valores como `redis://localhost:6379/0`, `MQTT_BROKER=localhost` y el puerto MQTT disponible.
+
+Para el frontend local, configurar `frontend/care-assistant-app/.env`:
+
+```env
+VITE_API_URL=http://localhost:8000/api/v1
+```
+
+## Ejecución con Docker Compose
 
 Desde la raíz del proyecto:
+
+```bash
+cp .env.example .env
+docker compose up -d --build
+docker compose ps
+```
+
+Servicios principales:
+
+- Frontend/Nginx: `http://localhost:18080` si `FRONTEND_HOST_PORT=18080`.
+- Backend Django: `http://localhost:8000` por el override local.
+- MQTT Mosquitto para el ESP32: puerto host `1884`, redirigido al puerto `1883` del contenedor.
+- Redis, Celery Worker y Celery Beat corren como servicios internos.
+
+Comandos útiles:
+
+```bash
+docker compose logs backend
+docker compose logs celery_worker
+docker compose logs celery_beat
+docker compose logs mosquitto
+docker compose logs frontend
+docker compose down
+```
+
+El primer arranque puede tardar mientras se descargan o preparan dependencias de voz y modelos.
+
+## Ejecución local sin Docker
+
+### Backend
 
 ```bash
 cd routine_assistant_backend
 python3 -m venv venv
 source venv/bin/activate
-pip install django djangorestframework djangorestframework-simplejwt django-cors-headers coreapi paho-mqtt "celery[redis]" sentence-transformers
+pip install --index-url https://download.pytorch.org/whl/cpu torch==2.5.1
+pip install -r requirements.txt
 python manage.py migrate
 python manage.py runserver
 ```
 
-Backend por defecto en:
-- `http://localhost:8000`
+El backend queda disponible en:
 
-Para automatizar el envío de actividades pendientes por MQTT:
+```text
+http://localhost:8000
+```
+
+### Celery y Redis
+
+En terminales separadas, con Redis activo:
 
 ```bash
-redis-server
 cd routine_assistant_backend
+source venv/bin/activate
 celery -A routine_assistant_backend worker --loglevel=info
+```
+
+```bash
+cd routine_assistant_backend
+source venv/bin/activate
 celery -A routine_assistant_backend beat --loglevel=info
 ```
 
-### 2) Frontend
-
-En otra terminal, desde la raíz:
+### Frontend
 
 ```bash
 cd frontend/care-assistant-app
@@ -122,56 +247,67 @@ npm install
 npm run dev
 ```
 
-Frontend por defecto en:
-- `http://localhost:5173`
+El frontend de desarrollo queda disponible en:
 
-## Ejecucion Con Docker Compose
-
-Desde la raiz del proyecto:
-
-```bash
-docker compose build
-docker compose up -d
-docker compose ps
-docker compose logs backend
-docker compose logs celery_worker
-docker compose logs celery_beat
-docker compose logs redis
-docker compose logs mosquitto
-docker compose logs frontend
-docker compose down
+```text
+http://localhost:5173
 ```
 
-Frontend Docker local:
-- `http://localhost:8080`
+## ESP32
 
-Notas:
-- El backend Django queda interno en Docker y el frontend proxya `/api/`, `/assistant/` y `/admin/`.
-- Mosquitto publica `1883` para preparar la futura conexion del ESP32.
+La implementación principal del dispositivo está en `ESP32/routine_assistant/`.
 
-## Variables de Entorno
+Antes de cargar el firmware, configurar `ESP32/routine_assistant/config.h` con:
 
-Archivo frontend:
-- `frontend/care-assistant-app/.env`
+- Credenciales Wi-Fi.
+- Host y puerto HTTP del backend.
+- Host, puerto, usuario y contraseña MQTT.
+- Nombre del parlante Bluetooth.
+- Pines del sensor táctil y micrófono I2S si el hardware cambia.
 
-Valor esperado:
+Contrato actual del dispositivo:
 
-```env
-VITE_API_URL=http://localhost:8000/api/v1
+- Tópico MQTT: `device/<mac-sin-dos-puntos-en-minusculas>/audio`.
+- Payload MQTT esperado: JSON con `type`, `assignment_id`, `activity`, `message`, `scheduled_time` y `audio_file`.
+- Audio de recordatorio: WAV servido desde `/assistant/audio/<file_name>/`.
+- Respuesta de voz: PCM16 mono, little endian, 16 kHz, enviada a `/assistant/stt/`.
+- Flujo físico: recibir recordatorio, reproducir por Bluetooth, esperar toque, grabar respuesta y enviar STT.
+
+Para pruebas locales con Docker Compose, el firmware suele apuntar al IP de la máquina que ejecuta Docker, con backend en puerto `8000` y MQTT en puerto `1884`.
+
+## Estructura del proyecto
+
+```text
+DesarrolloProyecto/
+├── DatosPruebaJSON/
+├── deployment/
+│   └── mosquitto/
+├── ESP32/
+│   ├── routine_assistant/
+│   ├── services/
+│   ├── models/
+│   └── diagnostics/
+├── frontend/
+│   └── care-assistant-app/
+│       ├── src/
+│       └── deployment/nginx/
+├── routine_assistant_backend/
+│   ├── activities/
+│   ├── routines/
+│   ├── users/
+│   ├── voice/
+│   ├── docker/
+│   ├── routine_assistant_backend/
+│   └── manage.py
+├── docker-compose.yml
+├── docker-compose.override.yml
+└── .env.example
 ```
 
-## Flujo de Uso Recomendado
+## Datos de prueba
 
-1. Crear cuenta de cuidador (`/signup`).
-2. Iniciar sesión (`/login`).
-3. Crear categorías.
-4. Crear actividad y programarla.
-5. Registrar adultos mayores asociados.
-6. Consultar, editar o desactivar actividades según necesidad.
+La carpeta `DatosPruebaJSON/` contiene archivos JSON de referencia:
 
-## Datos de Prueba
-
-La carpeta `DatosPruebaJSON/` contiene archivos de referencia:
 - `activities.json`
 - `categories.json`
 - `programs.json`
@@ -179,24 +315,12 @@ La carpeta `DatosPruebaJSON/` contiene archivos de referencia:
 - `caregivers.json`
 - `elderly.json`
 
-## Notas Técnicas
+## Notas técnicas
 
-- La API usa autenticación JWT en encabezado `Authorization: Bearer <token>`.
-- El backend filtra datos por usuario autenticado en módulos clave (actividades, categorías, programas, adultos mayores).
-- Existe una base local `db.sqlite3` incluida en el backend para desarrollo.
-- Proyecto orientado a entorno de desarrollo (por ejemplo, `DEBUG=True` en configuración actual).
-
-## Estructura de Carpetas
-
-```text
-DesarrolloProyecto/
-├── DatosPruebaJSON/
-├── frontend/
-│   └── care-assistant-app/
-└── routine_assistant_backend/
-    ├── activities/
-    ├── routines/
-    ├── users/
-    ├── routine_assistant_backend/
-    └── manage.py
-```
+- La API usa autenticación JWT mediante el encabezado `Authorization: Bearer <token>`.
+- El backend carga variables desde `routine_assistant_backend/.env` en ejecución local.
+- Docker Compose usa `.env` desde la raíz del repositorio.
+- El backend almacena audios generados en `routine_assistant_backend/media/assistant_audio/`.
+- La zona horaria configurada es `America/Bogota`.
+- Las asignaciones pueden quedar `pending`, `completed` o `missed`.
+- Si la respuesta de voz no se interpreta con suficiente confianza, el resultado queda como `unknown` y la asignación no cambia de estado.
