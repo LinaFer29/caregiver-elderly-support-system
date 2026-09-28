@@ -3,6 +3,7 @@ import type { Category } from "../types/Category";
 import { useNavigate } from "react-router-dom";
 import { Calendar, Clock } from "lucide-react";
 import { DynamicIcon } from "./DynamicIcon";
+import { RoutineActiveBadge } from "./StatusBadge";
 
 interface Props {
   activitiesWithProgram: ActivityWithProgram;
@@ -90,31 +91,7 @@ export function ActivityCard({ activitiesWithProgram, category }: Props) {
               {activitiesWithProgram.program.frequency[0].toUpperCase() + activitiesWithProgram.program.frequency.slice(1)}
             </span>
           </div>
-          <div>
-            <span>
-              {activitiesWithProgram.program.is_active ? (
-                <span
-                  className="text-xs px-3 py-1 rounded-lg"
-                  style={{
-                    backgroundColor: `#3CB37120`,
-                    color: `#3CB371`,
-                  }}
-                >
-                  Activo
-                </span>
-              ) : (
-                <span
-                  className="text-xs px-3 py-1 rounded-lg"
-                  style={{
-                    backgroundColor: `#FF634720`,
-                    color: `#FF6347`,
-                  }}
-                >
-                  Inactivo
-                </span>
-              )}
-            </span>
-          </div>
+          <RoutineActiveBadge isActive={activitiesWithProgram.program.is_active} className="px-3" />
         </div>
       )}
       </div>

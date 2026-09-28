@@ -156,6 +156,26 @@ class RoutineQueryServiceTests(BaseRoutineFixtureMixin, TestCase):
         self.assertEqual(summary["pending"], 1)
         self.assertEqual(summary["total"], 3)
 
+    def test_build_routine_payload_includes_assignment_user_response(self):
+        self.today_pending["assignment"].user_response = "Si, ya la hice"
+        self.today_pending["assignment"].save(update_fields=["user_response"])
+
+        payload = self.service.build_routine_payload(
+            caregiver=self.caregiver,
+            elderly=self.elderly,
+            date_value=self.current_date,
+        )
+
+        matching_items = [
+            item
+            for item in payload["items"]
+            if item["activity_id"] == self.activity_today_pending.id
+        ]
+
+        self.assertEqual(len(matching_items), 1)
+        self.assertEqual(matching_items[0]["status"], "pending")
+        self.assertEqual(matching_items[0]["user_response"], "Si, ya la hice")
+
     def test_historical_records_remain_in_database(self):
         past_date = self.current_date - timedelta(days=1)
 
@@ -200,6 +220,23 @@ class RoutineFrontendApiTests(BaseRoutineFixtureMixin, APITestCase):
         response = self.client.get(f"/api/v1/routines/{past_routine_id}/")
 
         self.assertEqual(response.status_code, 404)
+
+    def test_routine_detail_returns_assignment_user_response(self):
+        self.today_pending["assignment"].user_response = "Si, ya la hice"
+        self.today_pending["assignment"].save(update_fields=["user_response"])
+        routine_id = f"{self.elderly.id}|{self.current_date.isoformat()}"
+
+        response = self.client.get(f"/api/v1/routines/{routine_id}/")
+
+        self.assertEqual(response.status_code, 200)
+        matching_items = [
+            item
+            for item in response.json()["items"]
+            if item["activity_id"] == self.activity_today_pending.id
+        ]
+        self.assertEqual(len(matching_items), 1)
+        self.assertEqual(matching_items[0]["status"], "pending")
+        self.assertEqual(matching_items[0]["user_response"], "Si, ya la hice")
 
     def test_daily_summary_endpoint_returns_assignment_counts(self):
         response = self.client.get(

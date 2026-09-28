@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, CalendarDays, Clock3, Repeat2, Trash2, Pencil } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { deleteRoutine, getRoutineById } from "../services/routine.services";
 import type { RoutineByDate } from "../types/Routine";
+import { ActivityStatusBadge, RoutineActiveBadge, RoutineGeneralStatusBadge } from "../components/StatusBadge";
 
 function formatDate(value: string) {
   const date = new Date(`${value}T00:00:00`);
@@ -54,20 +55,6 @@ export default function RoutineDetailPage() {
     void loadRoutine();
   }, [id, navigate]);
 
-  const generalStatusLabel = useMemo(() => {
-    if (!routine) return "";
-    if (routine.general_status === "completed") return "Completada";
-    if (routine.general_status === "mixed") return "Mixta";
-    return "Activa";
-  }, [routine]);
-
-  const generalStatusClass = useMemo(() => {
-    if (!routine) return "bg-gray-100 text-gray-700";
-    if (routine.general_status === "completed") return "bg-green-100 text-green-700";
-    if (routine.general_status === "mixed") return "bg-yellow-100 text-yellow-700";
-    return "bg-blue-100 text-blue-700";
-  }, [routine]);
-
   const handleDelete = async () => {
     if (!routine) return;
     try {
@@ -105,7 +92,7 @@ export default function RoutineDetailPage() {
           </p>
           <div className="mt-3 flex flex-wrap gap-2 text-xs">
             <span className="px-2 py-1 rounded-lg bg-blue-50 text-blue">{routine.activities_count} actividades</span>
-            <span className={`px-2 py-1 rounded-lg ${generalStatusClass}`}>{generalStatusLabel}</span>
+            <RoutineGeneralStatusBadge status={routine.general_status} />
           </div>
         </div>
 
@@ -132,9 +119,7 @@ export default function RoutineDetailPage() {
           <article key={`${item.activity_id}-${item.time}-${index}`} className="bg-white border border-border-soft rounded-2xl p-4">
             <div className="flex items-start justify-between gap-2">
               <h2 className="font-semibold text-neutral-dark">{item.title}</h2>
-              <span className={`text-xs px-2 py-1 rounded-lg ${item.is_active ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
-                {item.is_active ? "Activa" : "Inactiva"}
-              </span>
+              <RoutineActiveBadge isActive={item.is_active} />
             </div>
 
             <p className="text-sm text-neutral-light mt-1">{item.description}</p>
@@ -153,17 +138,7 @@ export default function RoutineDetailPage() {
                 {item.category_name}
               </span>
 
-              {item.status && (
-                <span className={`inline-flex text-xs px-2 py-1 rounded-lg ${
-                  item.status === "completed"
-                    ? "bg-green-100 text-green-700"
-                    : item.status === "missed"
-                      ? "bg-red-100 text-red-600"
-                      : "bg-yellow-100 text-yellow-700"
-                }`}>
-                  {item.status === "completed" ? "Cumplida" : item.status === "missed" ? "Perdida" : "Pendiente"}
-                </span>
-              )}
+              {item.status && <ActivityStatusBadge status={item.status} />}
             </div>
 
             {item.additional_instructions?.trim() && (
@@ -174,6 +149,13 @@ export default function RoutineDetailPage() {
                 </p>
               </div>
             )}
+
+            <div className="mt-4 rounded-xl border border-border-soft bg-app-background p-3">
+              <p className="text-xs font-semibold text-neutral-dark">Respuesta recibida</p>
+              <p className="text-sm text-neutral-light mt-1 whitespace-pre-wrap">
+                {item.user_response?.trim() || "Sin respuesta registrada"}
+              </p>
+            </div>
           </article>
         ))}
       </div>

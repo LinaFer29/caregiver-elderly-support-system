@@ -4,6 +4,7 @@ import { CalendarDays, Clock3, Repeat2, PlusCircle } from "lucide-react";
 import { useSelectedElderly } from "../context/useSelectedElderly";
 import { getRoutinesByElderly } from "../services/routine.services";
 import type { RoutineByDate } from "../types/Routine";
+import { RoutineActiveBadge } from "../components/StatusBadge";
 
 function formatDate(value: string) {
   const date = new Date(`${value}T00:00:00`);
@@ -125,13 +126,7 @@ export default function RoutinesPage() {
                   <article key={`${routine.date}-${item.activity_id}-${item.time}`} className="border border-border-soft rounded-xl p-4">
                     <div className="flex items-start justify-between gap-2">
                       <h3 className="font-semibold text-neutral-dark">{item.title}</h3>
-                      <span
-                        className={`text-xs px-2 py-1 rounded-lg ${
-                          item.is_active ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"
-                        }`}
-                      >
-                        {item.is_active ? "Activa" : "Inactiva"}
-                      </span>
+                      <RoutineActiveBadge isActive={item.is_active} />
                     </div>
                     <p className="text-sm text-neutral-light mt-1 line-clamp-2">{item.description}</p>
 

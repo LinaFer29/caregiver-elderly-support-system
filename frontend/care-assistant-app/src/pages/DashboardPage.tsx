@@ -86,6 +86,12 @@ export default function DashboardPage() {
 
       {selectedElderly && (
         <>
+          <div className="rounded-2xl border border-yellow-200 bg-yellow-50 px-4 py-3">
+            <p className="text-sm text-yellow-800">
+              Los estados de las actividades mostrados corresponden únicamente al día actual.
+            </p>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-white border border-border-soft rounded-2xl p-4">
               <p className="text-xs text-neutral-light">Adulto mayor</p>

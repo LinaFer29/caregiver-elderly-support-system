@@ -155,6 +155,7 @@ class RoutineQueryService:
                     "is_active": program.is_active if program else True,
                     "status": assignment.status,
                     "additional_instructions": assignment.additional_instructions,
+                    "user_response": assignment.user_response,
                 }
             )
 

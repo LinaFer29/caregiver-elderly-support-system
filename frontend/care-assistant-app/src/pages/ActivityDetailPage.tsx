@@ -10,6 +10,7 @@ import type { Program } from "../types/Program";
 import { getAllPrograms } from "../services/programs.services";
 import { DynamicIcon } from "../components/DynamicIcon";
 import { useSelectedElderly } from "../context/useSelectedElderly";
+import { RoutineActiveBadge } from "../components/StatusBadge";
 
 export function ActivityDetailPage() {
     const { id } = useParams();
@@ -158,15 +159,7 @@ export function ActivityDetailPage() {
                         <span className="text-nuetral-dark">Estado de Actividad</span>
                         <p className="text-neutral-light">Estado disponible del sistema.</p>
                     </div>
-                    <span
-                        className={`text-xs px-3 py-1 rounded-lg ${
-                            program?.is_active
-                                ? "bg-green-100 text-green-700"
-                                : "bg-red-100 text-red-600"
-                        }`}
-                    >
-                        {program?.is_active ? "Activa" : "Inactiva"}
-                    </span>
+                    <RoutineActiveBadge isActive={Boolean(program?.is_active)} className="px-3" />
 
                 </div>
             </div>

@@ -44,7 +44,10 @@ export type RoutineListItem = {
   is_active: boolean;
   status?: "pending" | "completed" | "missed";
   additional_instructions?: string | null;
+  user_response?: string | null;
 };
+
+export type RoutineGeneralStatus = "active" | "mixed" | "completed";
 
 export type RoutineByDate = {
   id: string;
@@ -56,7 +59,7 @@ export type RoutineByDate = {
   };
   items: RoutineListItem[];
   activities_count: number;
-  general_status: "active" | "mixed" | "completed";
+  general_status: RoutineGeneralStatus;
 };
 
 export type DailyAssignmentSummary = {
